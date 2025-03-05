@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'login_screens/welcome_page.dart';
 
 void main() => runApp(BMS());
 
@@ -8,7 +9,9 @@ class BMS extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: Scaffold(),
+      debugShowCheckedModeBanner: false,
+      home: WelcomePage(),
+      routes: {},
     );
   }
 }
