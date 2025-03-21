@@ -1,4 +1,8 @@
+import 'package:book_my_slot/login_screens/signin_page.dart';
+import 'package:book_my_slot/login_screens/signup_page.dart';
 import 'package:flutter/material.dart';
+import 'package:book_my_slot/custom_widgets.dart';
+import 'package:book_my_slot/constants.dart';
 
 class WelcomePage extends StatelessWidget {
   const WelcomePage({super.key});
@@ -15,7 +19,6 @@ class WelcomePage extends StatelessWidget {
               height: 200,
             ),
             const SizedBox(height: 20),
-
             const Text(
               'BookMySlot',
               style: TextStyle(
@@ -24,41 +27,30 @@ class WelcomePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 40),
-
-            // Sign In Button
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF091755),
-                foregroundColor: Colors.white,
-                minimumSize: const Size(300, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              onPressed: () {},
-              child: const Text('Sign in'),
+            CCustomButton(
+              buttonColor: kButtonBackgroundColor,
+              textColor: kButtonForegroundColor,
+              text: 'Sign In',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SignInPage()),
+                );
+              },
             ),
             const SizedBox(height: 20),
-
-            // Sign Up Button
-            OutlinedButton(
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(300, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                side: const BorderSide(color: Colors.black),
-              ),
-              onPressed: () {},
-              child: const Text(
-                'Sign up',
-                style: TextStyle(color: Colors.black),
-              ),
+            CCustomButton(
+              buttonColor: kButtonForegroundColor,
+              textColor: kButtonBackgroundColor,
+              text: 'Sign Up',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SignUpPage()),
+                );
+              },
             ),
-
             const SizedBox(height: 20),
-
-            // Terms & Privacy
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 30.0),
               child: Text(
