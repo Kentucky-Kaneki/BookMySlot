@@ -1,15 +1,54 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:book_my_slot/custom_widgets.dart';
+import 'package:book_my_slot/constants.dart';
+import 'package:book_my_slot/login_screens/welcome_page.dart';
 
 class CustomerHomePage extends StatelessWidget {
   const CustomerHomePage({super.key});
+
+  Future<void> logout() async {
+    final supabase = Supabase.instance.client;
+    await supabase.auth.signOut();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hello, Abc!'),
+        title: Text('Hello Abc!'),
         centerTitle: true,
-        backgroundColor: Colors.indigo,
+        backgroundColor: kMainColor,
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.logout,
+              color: Colors.white,
+              weight: 10,
+            ),
+            onPressed: () async {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                },
+              );
+              await logout();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => WelcomePage()),
+                (route) => false,
+              );
+            },
+            tooltip: "Sign Out",
+          ),
+        ],
       ),
       bottomNavigationBar: BottomNavigationBar(
         items: const [

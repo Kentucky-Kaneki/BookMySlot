@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
 
-const Color kButtonBackgroundColor = Color(0xFF091755);
-const Color kButtonForegroundColor = Colors.white;
+const Color kMainColor = Color(0xFF091755);
 const TextStyle kAppBarTextStyle1 = TextStyle(fontWeight: FontWeight.bold);

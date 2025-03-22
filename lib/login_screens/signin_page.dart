@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:book_my_slot/custom_widgets.dart';
 import 'package:book_my_slot/constants.dart';
 import 'package:book_my_slot/customer_screens/cust_home_page.dart';
+import 'package:book_my_slot/client_screens/client_home_page.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -36,20 +37,36 @@ class _SignInPageState extends State<SignInPage> {
 
         // Navigate to Home Page
         if (mounted) {
-          Navigator.pushReplacement(
+          print("mounted");
+          final userId = response.user!.id;
+          final userProfile = await supabase
+              .from('profiles')
+              .select('role')
+              .eq('id', userId)
+              .single();
+          final bool isCustomer = userProfile['role'] == 'customer';
+          Navigator.pushAndRemoveUntil(
             context,
-            MaterialPageRoute(builder: (context) => const CustomerHomePage()),
+            MaterialPageRoute(
+              builder: (context) => isCustomer
+                  ? const CustomerHomePage()
+                  : const ClientHomePage(),
+            ),
+            (route) => false,
           );
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Login failed. Please check your credentials.')),
+        CCustomSnackBar.show(
+          context,
+          'SignIn failed. Please check your credentials.',
+          Colors.red,
         );
       }
     } on AuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
+      CCustomSnackBar.show(
+        context,
+        e.message,
+        Colors.red,
       );
     } finally {
       setState(() {
@@ -94,8 +111,8 @@ class _SignInPageState extends State<SignInPage> {
               child: _isLoading
                   ? CircularProgressIndicator()
                   : CCustomButton(
-                      buttonColor: kButtonBackgroundColor,
-                      textColor: kButtonForegroundColor,
+                      buttonColor: kMainColor,
+                      textColor: Colors.white,
                       text: 'Sign In',
                       onPressed: _signIn,
                     ),

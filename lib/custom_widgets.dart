@@ -1,4 +1,8 @@
+import 'package:book_my_slot/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'login_screens/welcome_page.dart';
 
 class CCustomButton extends StatelessWidget {
   final Color buttonColor;
@@ -87,6 +91,58 @@ class CCustomSnackBar {
           borderRadius: BorderRadius.circular(10),
         ),
       ),
+    );
+  }
+}
+
+class CCustomAppBar extends StatelessWidget {
+  final String titleText;
+
+  Future<void> logout() async {
+    final supabase = Supabase.instance.client;
+    await supabase.auth.signOut();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('auth_token');
+  }
+
+  const CCustomAppBar({
+    super.key,
+    required this.titleText,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      title: Text(titleText),
+      centerTitle: true,
+      backgroundColor: kMainColor,
+      actions: [
+        IconButton(
+          icon: const Icon(
+            Icons.logout,
+            color: Colors.white,
+            weight: 10,
+          ),
+          onPressed: () async {
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              },
+            );
+            await logout();
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (context) => WelcomePage()),
+              (route) => false,
+            );
+          },
+          tooltip: "Sign Out",
+        ),
+      ],
     );
   }
 }

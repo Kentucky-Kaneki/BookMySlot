@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:book_my_slot/custom_widgets.dart';
 import 'package:book_my_slot/constants.dart';
-import 'package:book_my_slot/customer_screens/cust_home_page.dart';
-import 'package:book_my_slot/client_screens/client_home_page.dart';
+import 'package:book_my_slot/login_screens/signin_page.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -55,6 +53,20 @@ class _SignUpPageState extends State<SignUpPage> {
       return;
     }
 
+    // Phone no. validity
+    if (_phoneController.text.trim().length != 10 ||
+        !_phoneController.text.trim().contains(RegExp(r'^[0-9]+$'))) {
+      CCustomSnackBar.show(
+        context,
+        "Invalid Phone number",
+        Colors.orange,
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
     try {
       final supabase = Supabase.instance.client;
       final response = await supabase.auth.signUp(
@@ -68,30 +80,41 @@ class _SignUpPageState extends State<SignUpPage> {
       );
 
       if (response.user != null) {
-        // Save Token to SharedPreferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('auth_token', response.session!.accessToken);
+        final userId = response.user!.id;
 
-        // Navigate & Clear Stack
+        // Insert into profiles table
+        await supabase.from('profiles').insert({
+          "id": userId,
+          "name": _nameController.text.trim(),
+          "phone": _phoneController.text.trim(),
+          "role": _isCustomer ? "customer" : "owner",
+        });
+
+        // Successful login
         if (mounted) {
-          Navigator.pushAndRemoveUntil(
+          print('mounted');
+          CCustomSnackBar.show(
             context,
-            MaterialPageRoute(
-              builder: (context) => _isCustomer
-                  ? const CustomerHomePage()
-                  : const ClientHomePage(),
-            ),
-            (route) => false,
+            "Email has been sent. Verify to register successfully",
+            Colors.green,
+          );
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => SignInPage()),
           );
         }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sign-up failed. Try again.')),
+        CCustomSnackBar.show(
+          context,
+          'Sign-up failed. Try again.',
+          Colors.red,
         );
       }
     } on AuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
+      CCustomSnackBar.show(
+        context,
+        e.message,
+        Colors.red,
       );
     } finally {
       setState(() {
@@ -110,117 +133,111 @@ class _SignUpPageState extends State<SignUpPage> {
         ),
         title: const Text(
           'Sign Up',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // User Inputs
-            CCustomInputField(
-              label: 'Enter name',
-              controller: _nameController,
-            ),
-            CCustomInputField(
-              label: 'Phone no.',
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-            ),
-            CCustomInputField(
-              label: 'Email',
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-            ),
-            CCustomInputField(
-              label: 'Set password',
-              controller: _passwordController,
-              obscureText: true,
-            ),
-            CCustomInputField(
-              label: 'Confirm password',
-              controller: _confirmPasswordController,
-              obscureText: true,
-            ),
-            SizedBox(height: 16),
-            // Toggle Button
-            Center(
-              child: Column(
-                children: [
-                  Text(
-                    'Select Account Type',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(30),
-                      color: Colors.grey[200],
-                    ),
-                    child: Material(
-                      elevation: 5,
-                      borderRadius: BorderRadius.circular(30),
-                      shadowColor: Colors.black.withValues(
-                        alpha: 0.3,
-                      ),
-                      child: ToggleButtons(
-                        borderRadius: BorderRadius.circular(30),
-                        selectedColor: Colors.white,
-                        color: Colors.black,
-                        fillColor: kButtonBackgroundColor,
-                        isSelected: [_isCustomer, !_isCustomer],
-                        onPressed: (index) {
-                          setState(() {
-                            _isCustomer = index == 0;
-                          });
-                        },
-                        constraints: const BoxConstraints(
-                          minHeight: 50,
-                          minWidth: 150,
-                        ),
+      body: SafeArea(
+        child: GestureDetector(
+          // Dismiss keyboard on tap
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: IntrinsicHeight(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // User Inputs
+                    CCustomInputField(
+                        label: 'Enter name', controller: _nameController),
+                    CCustomInputField(
+                        label: 'Phone no.',
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone),
+                    CCustomInputField(
+                        label: 'Email',
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress),
+                    CCustomInputField(
+                        label: 'Set password',
+                        controller: _passwordController,
+                        obscureText: true),
+                    CCustomInputField(
+                        label: 'Confirm password',
+                        controller: _confirmPasswordController,
+                        obscureText: true),
+                    const SizedBox(height: 16),
+
+                    // Toggle Button
+                    Center(
+                      child: Column(
                         children: [
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 8,
-                            ),
-                            child: Text('Customer'),
+                          const Text(
+                            'Select Account Type',
+                            style: TextStyle(
+                                fontWeight: FontWeight.bold, fontSize: 16),
                           ),
-                          Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 24,
-                              vertical: 8,
+                          const SizedBox(height: 8),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(30),
+                              color: Colors.grey[200],
                             ),
-                            child: Text('Owner'),
+                            child: ToggleButtons(
+                              borderRadius: BorderRadius.circular(30),
+                              selectedColor: Colors.white,
+                              color: Colors.black,
+                              fillColor: kMainColor,
+                              isSelected: [_isCustomer, !_isCustomer],
+                              onPressed: (index) {
+                                setState(() {
+                                  _isCustomer = index == 0;
+                                });
+                              },
+                              constraints: const BoxConstraints(
+                                  minHeight: 50, minWidth: 150),
+                              children: const [
+                                Padding(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 24, vertical: 8),
+                                    child: Text('Customer')),
+                                Padding(
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 24, vertical: 8),
+                                    child: Text('Owner')),
+                              ],
+                            ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                ],
+
+                    // Push the button to the bottom
+                    const SizedBox(
+                      height: 160,
+                    ),
+                    // Register Button
+                    Padding(
+                      padding: EdgeInsets.only(
+                          bottom: MediaQuery.of(context).viewInsets.bottom),
+                      child: Center(
+                        child: _isLoading
+                            ? const CircularProgressIndicator(
+                                color: Colors.grey)
+                            : CCustomButton(
+                                buttonColor: kMainColor,
+                                textColor: Colors.white,
+                                text: 'Register',
+                                onPressed: _signUp,
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-            Spacer(),
-            // Register Button
-            Center(
-              child: _isLoading
-                  ? const CircularProgressIndicator()
-                  : CCustomButton(
-                      buttonColor: kButtonBackgroundColor,
-                      textColor: kButtonForegroundColor,
-                      text: 'Register',
-                      onPressed: _signUp,
-                    ),
-            ),
-            const SizedBox(height: 24),
-          ],
+          ),
         ),
       ),
     );

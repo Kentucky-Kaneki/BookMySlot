@@ -28,8 +28,8 @@ class WelcomePage extends StatelessWidget {
             ),
             const SizedBox(height: 40),
             CCustomButton(
-              buttonColor: kButtonBackgroundColor,
-              textColor: kButtonForegroundColor,
+              buttonColor: kMainColor,
+              textColor: Colors.white,
               text: 'Sign In',
               onPressed: () {
                 Navigator.push(
@@ -40,8 +40,8 @@ class WelcomePage extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             CCustomButton(
-              buttonColor: kButtonForegroundColor,
-              textColor: kButtonBackgroundColor,
+              buttonColor: Colors.white,
+              textColor: kMainColor,
               text: 'Sign Up',
               onPressed: () {
                 Navigator.push(
