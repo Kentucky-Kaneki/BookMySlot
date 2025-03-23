@@ -19,7 +19,10 @@ class CustomerHomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Hello Abc!'),
+        title: Text(
+          'Hello Abc!',
+          style: TextStyle(color: Colors.white),
+        ),
         centerTitle: true,
         backgroundColor: kMainColor,
         actions: [

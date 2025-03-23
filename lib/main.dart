@@ -43,6 +43,7 @@ class BMS extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: ThemeData.light(),
       home: isLoggedIn
           ? (isCustomer ? const CustomerHomePage() : const ClientHomePage())
           : const WelcomePage(),

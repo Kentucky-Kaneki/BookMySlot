@@ -34,17 +34,17 @@ class _SignInPageState extends State<SignInPage> {
         // Save Token to SharedPreferences
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('auth_token', response.session!.accessToken);
+        final userId = response.user!.id;
+        final userProfile = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', userId)
+            .single();
+        final bool isCustomer = userProfile['role'] == 'customer';
+        await prefs.setBool('is_customer', isCustomer);
 
         // Navigate to Home Page
         if (mounted) {
-          print("mounted");
-          final userId = response.user!.id;
-          final userProfile = await supabase
-              .from('profiles')
-              .select('role')
-              .eq('id', userId)
-              .single();
-          final bool isCustomer = userProfile['role'] == 'customer';
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
