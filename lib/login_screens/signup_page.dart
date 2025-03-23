@@ -68,6 +68,7 @@ class _SignUpPageState extends State<SignUpPage> {
     }
 
     try {
+      // SignUp the user
       final supabase = Supabase.instance.client;
       final response = await supabase.auth.signUp(
         email: _emailController.text.trim(),
@@ -90,19 +91,14 @@ class _SignUpPageState extends State<SignUpPage> {
           "role": _isCustomer ? "customer" : "owner",
         });
 
-        // Successful login
-        if (mounted) {
-          print('mounted');
-          CCustomSnackBar.show(
-            context,
-            "Email has been sent. Verify to register successfully",
-            Colors.green,
-          );
+        Future.delayed(const Duration(seconds: 1), () {
+          CCustomSnackBar.show(context,
+              "Verify your email to complete registration!", Colors.green);
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(builder: (context) => SignInPage()),
           );
-        }
+        });
       } else {
         CCustomSnackBar.show(
           context,

@@ -17,41 +17,43 @@ class _ClientHomePageState extends State<ClientHomePage> {
   final TextEditingController _openingTimeController = TextEditingController();
   final TextEditingController _closingTimeController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
-  final TextEditingController _gameController = TextEditingController();
-  final TextEditingController _noticeController = TextEditingController();
+  final TextEditingController _gameListController = TextEditingController();
+  final TextEditingController _noticeListController = TextEditingController();
 
   int _selectedIndex = 0;
-  bool _showGameInput = false;
-  bool _showNoticeInput = false;
+  bool _isEditingGameList = false;
+  bool _isEditingNoticeList = false;
   bool _isEditingName = false;
   bool _isEditingLocation = false;
 
   String _userName = 'User';
   List<String> _games = [];
   List<String> _notices = [];
-  String? _editingGame;
 
   Future<void> _fetchData() async {
     final supabase = Supabase.instance.client;
+    final userId = supabase.auth.currentUser?.id;
 
-    final userResponse =
-        await supabase.from('game_center').select('name').single();
+    final responses = await Future.wait([
+      supabase.from('profiles').select('name').eq('id', userId!).maybeSingle(),
+      supabase
+          .from('game_center')
+          .select()
+          .eq('client_id', userId)
+          .maybeSingle(),
+    ]);
+
+    final userResponse = responses[0];
+    final centerResponse = responses[1];
+
     setState(() {
-      _userName = userResponse['name'] ?? 'User';
-    });
-
-    final gameResponse = await supabase.from('games').select();
-    final noticeResponse = await supabase.from('notices').select();
-    final centerResponse = await supabase.from('game_center').select().single();
-
-    setState(() {
-      _games = gameResponse.map<String>((g) => g['name'] as String).toList();
-      _notices =
-          noticeResponse.map<String>((n) => n['text'] as String).toList();
-      _nameController.text = centerResponse['name'];
-      _openingTimeController.text = centerResponse['opening_time'] ?? '';
-      _closingTimeController.text = centerResponse['closing_time'] ?? '';
-      _locationController.text = centerResponse['location'];
+      _userName = userResponse?['name'] ?? 'User';
+      _nameController.text = centerResponse?['name'] ?? '';
+      _openingTimeController.text = centerResponse?['opening_time'] ?? '';
+      _closingTimeController.text = centerResponse?['closing_time'] ?? '';
+      _locationController.text = centerResponse?['location'] ?? '';
+      _games = List<String>.from(centerResponse?['games'] ?? []);
+      _notices = List<String>.from(centerResponse?['notices'] ?? []);
     });
   }
 
@@ -71,35 +73,70 @@ class _ClientHomePageState extends State<ClientHomePage> {
   Future<void> _saveChanges(String field, dynamic value) async {
     try {
       final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
 
-      await supabase.from('game_center').update({field: value}).eq(
-          'id', 'YOUR_CENTER_ID'); // Replace with actual center ID
+      if (userId == null) {
+        CCustomSnackBar.show(context, 'User not logged in!', Colors.red);
+        return;
+      }
 
-      setState(() {
-        if (field == 'name') _isEditingName = false;
-        if (field == 'location') _isEditingLocation = false;
-      });
+      // Check if a row exists for this user
+      final response = await supabase
+          .from('game_center')
+          .select('id')
+          .eq('client_id', userId)
+          .maybeSingle();
+
+      if (response == null) {
+        // No row found, insert a new one
+        final insertResponse = await supabase.from('game_center').insert({
+          'client_id': userId,
+          field: value,
+        });
+
+        if (insertResponse.error != null) {
+          throw insertResponse.error!;
+        }
+      } else {
+        // Row exists, update it
+        final centerId = response['id'];
+        await supabase
+            .from('game_center')
+            .update({field: value}).eq('id', centerId);
+      }
+
+      if (mounted) {
+        setState(() {
+          if (field == 'name') _isEditingName = false;
+          if (field == 'location') _isEditingLocation = false;
+        });
+      }
 
       CCustomSnackBar.show(
           context, '$field updated successfully!', Colors.green);
     } catch (e) {
+      debugPrint('Error updating $field: $e');
       CCustomSnackBar.show(context, 'Error updating $field', Colors.red);
     }
   }
 
   Future<void> _pickTime(BuildContext context) async {
+    TimeOfDay initialOpeningTime = _openingTimeController.text.isNotEmpty
+        ? _parseTime(_openingTimeController.text)
+        : TimeOfDay.now();
+
     // Opening time picker
     TimeOfDay? openingTime = await showTimePicker(
       context: context,
-      initialTime: _openingTimeController.text.isNotEmpty
-          ? _parseTime(_openingTimeController.text)
-          : TimeOfDay.now(),
+      helpText: 'Choose Opening Time',
+      initialTime: initialOpeningTime,
     );
     if (openingTime == null) return;
 
     // Closing time picker
     TimeOfDay? closingTime = await showTimePicker(
       context: context,
+      helpText: 'Choose Closing Time',
       initialTime: openingTime,
     );
     if (closingTime == null) return;
@@ -118,10 +155,8 @@ class _ClientHomePageState extends State<ClientHomePage> {
       _openingTimeController.text = openingTimeStr;
       _closingTimeController.text = closingTimeStr;
     });
-    await _saveChanges('timings', {
-      'opening_time': openingTimeStr,
-      'closing_time': closingTimeStr,
-    });
+    await _saveChanges('opening_time', openingTimeStr);
+    await _saveChanges('closing_time', closingTimeStr);
   }
 
   TimeOfDay _parseTime(String timeStr) {
@@ -142,50 +177,87 @@ class _ClientHomePageState extends State<ClientHomePage> {
   }
 
   String _formatTime(TimeOfDay time) {
-    final localizations = MaterialLocalizations.of(context);
-    return localizations.formatTimeOfDay(time, alwaysUse24HourFormat: false);
+    final int hour =
+        time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod; // Convert 0 to 12
+    final String period = time.period == DayPeriod.am ? 'AM' : 'PM';
+    final String minute =
+        time.minute.toString().padLeft(2, '0'); // Ensure 2 digits
+
+    return '$hour:$minute $period';
+  }
+
+  String _formatStoredTime(String timeStr) {
+    try {
+      List<String> parts = timeStr.split(':');
+      int hour = int.parse(parts[0]);
+      int minute = int.parse(parts[1]);
+
+      TimeOfDay time = TimeOfDay(hour: hour, minute: minute);
+      return _formatTime(time); // Use your existing _formatTime function
+    } catch (e) {
+      return timeStr; // Return original in case of an error
+    }
+  }
+
+  Future<void> _saveGames() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      List<String> updatedGames = _gameListController.text
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+
+      await supabase
+          .from('game_center')
+          .update({'games': updatedGames}).eq('client_id', userId);
+
+      setState(() {
+        _games = updatedGames;
+        _isEditingGameList = false;
+      });
+
+      CCustomSnackBar.show(
+          context, 'Games updated successfully!', Colors.green);
+    } catch (e) {
+      CCustomSnackBar.show(context, 'Error updating games', Colors.red);
+    }
+  }
+
+  Future<void> _saveNotices() async {
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      List<String> updatedNotices = _noticeListController.text
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .toList();
+
+      await supabase
+          .from('game_center')
+          .update({'notices': updatedNotices}).eq('client_id', userId);
+
+      setState(() {
+        _notices = updatedNotices;
+        _isEditingNoticeList = false;
+      });
+
+      CCustomSnackBar.show(
+          context, 'Notices updated successfully!', Colors.green);
+    } catch (e) {
+      CCustomSnackBar.show(context, 'Error updating Notices', Colors.red);
+    }
   }
 
   bool _isClosingTimeValid(TimeOfDay opening, TimeOfDay closing) {
     return (closing.hour > opening.hour) ||
         (closing.hour == opening.hour && closing.minute > opening.minute);
-  }
-
-  Future<void> _addGame() async {
-    if (_gameController.text.trim().isEmpty) return;
-    final supabase = Supabase.instance.client;
-    await supabase.from('games').insert({'name': _gameController.text.trim()});
-
-    setState(() {
-      _games.add(_gameController.text.trim());
-      _gameController.clear();
-      _showGameInput = false;
-    });
-  }
-
-  Future<void> _updateGame(String oldName, String newName) async {
-    final supabase = Supabase.instance.client;
-    await supabase.from('games').update({'name': newName}).eq('name', oldName);
-
-    setState(() {
-      int index = _games.indexOf(oldName);
-      if (index != -1) _games[index] = newName;
-      _editingGame = null;
-    });
-  }
-
-  Future<void> _addNotice() async {
-    if (_noticeController.text.trim().isEmpty) return;
-    final supabase = Supabase.instance.client;
-    await supabase
-        .from('notices')
-        .insert({'text': _noticeController.text.trim()});
-
-    setState(() {
-      _notices.add(_noticeController.text.trim());
-      _noticeController.clear();
-      _showNoticeInput = false;
-    });
   }
 
   @override
@@ -200,8 +272,8 @@ class _ClientHomePageState extends State<ClientHomePage> {
     _openingTimeController.dispose();
     _closingTimeController.dispose();
     _locationController.dispose();
-    _gameController.dispose();
-    _noticeController.dispose();
+    _gameListController.dispose();
+    _noticeListController.dispose();
     super.dispose();
   }
 
@@ -260,9 +332,8 @@ class _ClientHomePageState extends State<ClientHomePage> {
           setState(() {
             _isEditingName = false;
             _isEditingLocation = false;
-            _showGameInput = false;
-            _showNoticeInput = false;
-            _editingGame = null;
+            _isEditingGameList = false;
+            _isEditingNoticeList = false;
           });
         },
         child: Column(
@@ -276,10 +347,21 @@ class _ClientHomePageState extends State<ClientHomePage> {
                     children: [
                       // Center Information
                       Container(
-                        padding: const EdgeInsets.all(8.0),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 24,
+                          horizontal: 32,
+                        ),
                         decoration: BoxDecoration(
                           color: kMainColor,
-                          borderRadius: BorderRadius.circular(8.0),
+                          borderRadius: BorderRadius.all(Radius.circular(48.0)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.3),
+                              blurRadius: 10,
+                              spreadRadius: 7,
+                              offset: Offset(1, 4),
+                            ),
+                          ],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -291,11 +373,8 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                 _isEditingName
                                     ? Expanded(
                                         child: TextField(
+                                          style: TextStyle(color: Colors.white),
                                           controller: _nameController,
-                                          decoration: const InputDecoration(
-                                            hintText:
-                                                'Enter Gaming Center Name',
-                                          ),
                                         ),
                                       )
                                     : Text(
@@ -303,7 +382,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                             ? 'Gaming Center Name'
                                             : _nameController.text,
                                         style: TextStyle(
-                                          fontSize: 18,
+                                          fontSize: 20,
                                           fontWeight: FontWeight.bold,
                                           color: Colors.white,
                                         ),
@@ -324,15 +403,22 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
 
                             // Timings
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(
-                                  '${_openingTimeController.text} - ${_closingTimeController.text}',
-                                  style: TextStyle(color: Colors.white),
+                                Row(
+                                  children: [
+                                    Icon(Icons.watch_later_rounded,
+                                        color: Colors.white),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Timings: ${_formatStoredTime(_openingTimeController.text)} - ${_formatStoredTime(_closingTimeController.text)}',
+                                      style: TextStyle(
+                                          color: Colors.white, fontSize: 16),
+                                    ),
+                                  ],
                                 ),
                                 IconButton(
                                   icon: Icon(
@@ -345,37 +431,33 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
 
                             // Location
                             Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                Row(
-                                  children: [
-                                    Icon(Icons.location_on,
-                                        color: Colors.white),
-                                    SizedBox(width: 8),
-                                    _isEditingLocation
-                                        ? SizedBox(
-                                            width: 200,
-                                            child: TextField(
-                                              controller: _locationController,
-                                              decoration: const InputDecoration(
-                                                  hintText: 'Enter location'),
-                                            ),
-                                          )
-                                        : Text(
-                                            _locationController.text.isEmpty
-                                                ? 'Gaming Center Location'
-                                                : _locationController.text,
-                                            style: const TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
+                                Icon(Icons.location_on, color: Colors.white),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: _isEditingLocation
+                                      ? TextField(
+                                          style: TextStyle(color: Colors.white),
+                                          controller: _locationController,
+                                          maxLines:
+                                              null, // Allows dynamic expansion
+                                          decoration: InputDecoration(
+                                            border: InputBorder.none,
                                           ),
-                                  ],
+                                        )
+                                      : Text(
+                                          _locationController.text.isEmpty
+                                              ? 'Enter Location'
+                                              : _locationController.text,
+                                          style: TextStyle(
+                                              fontSize: 16,
+                                              color: Colors.white),
+                                          softWrap: true,
+                                        ),
                                 ),
                                 IconButton(
                                   icon: Icon(
@@ -398,95 +480,196 @@ class _ClientHomePageState extends State<ClientHomePage> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 32),
 
-                      // Games
-                      const Text(
-                        'Games Available',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
+                      // Games List Section
                       Column(
-                        children: _games.map((game) {
-                          bool isEditing = _editingGame == game;
-                          TextEditingController controller =
-                              TextEditingController(text: game);
-                          return GestureDetector(
-                            onTap: () {
-                              setState(() {
-                                _editingGame = game;
-                              });
-                            },
-                            child: isEditing
-                                ? TextField(
-                                    controller: controller,
-                                    autofocus: true,
-                                    decoration: const InputDecoration(
-                                      hintText: 'Edit game name',
-                                    ),
-                                    onSubmitted: (newValue) async {
-                                      if (newValue.trim().isNotEmpty &&
-                                          newValue != game) {
-                                        await _updateGame(
-                                            game, newValue.trim());
-                                      }
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Games Available',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          // Games List with Proper Layout
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: _games.isNotEmpty
+                                    ? Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: _games.map((game) {
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 4.0),
+                                            child: Row(
+                                              children: [
+                                                const Icon(Icons.sports_esports,
+                                                    size: 20,
+                                                    color: kMainColor),
+                                                const SizedBox(width: 8),
+                                                Text(game,
+                                                    style: const TextStyle(
+                                                        fontSize: 14)),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      )
+                                    : const Text(
+                                        'No games added yet.',
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            fontStyle: FontStyle.italic),
+                                      ),
+                              ),
+
+                              // Edit Icon Aligned to Bottom-Right
+                              if (!_isEditingGameList)
+                                Align(
+                                  alignment: Alignment.bottomRight,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.edit,
+                                        color: kMainColor, size: 24),
+                                    onPressed: () {
                                       setState(() {
-                                        _editingGame = null;
+                                        _gameListController.text =
+                                            _games.join(', ');
+                                        _isEditingGameList = true;
                                       });
                                     },
-                                  )
-                                : Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 4.0),
-                                    child: Text(
-                                      game,
-                                      style: const TextStyle(fontSize: 14),
-                                    ),
                                   ),
-                          );
-                        }).toList(),
-                      ),
-                      if (_showGameInput)
-                        TextField(
-                          controller: _gameController,
-                          autofocus: true,
-                          decoration: const InputDecoration(
-                              hintText: 'Enter game name'),
-                          onSubmitted: (_) async {
-                            await _addGame();
-                            setState(() {
-                              _showGameInput = false;
-                            });
-                          },
-                        ),
-                      TextButton(
-                        onPressed: () => setState(() => _showGameInput = true),
-                        child: const Text('+ Add game'),
-                      ),
-                      const SizedBox(height: 24),
+                                ),
+                            ],
+                          ),
 
-                      // Notices
-                      const Text(
-                        'Notices',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
+                          const SizedBox(height: 8),
+
+                          // Text Field and Confirm Icon for Editing
+                          if (_isEditingGameList)
+                            Column(
+                              children: [
+                                TextField(
+                                  controller: _gameListController,
+                                  decoration: const InputDecoration(
+                                    hintText:
+                                        'Enter game names separated by commas',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+
+                                // Save Icon
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.check,
+                                        color: Colors.green, size: 28),
+                                    onPressed: _saveGames, // Save function
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
                       ),
-                      ..._notices.map((notice) => Text(notice)).toList(),
-                      if (_showNoticeInput)
-                        TextField(
-                          controller: _noticeController,
-                          decoration:
-                              const InputDecoration(hintText: 'Enter notice'),
-                          onSubmitted: (_) => _addNotice(),
-                        ),
-                      TextButton(
-                        onPressed: () =>
-                            setState(() => _showNoticeInput = true),
-                        child: const Text('+ Add Notice'),
+
+                      // Notices List Section
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Notices',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: _notices.isNotEmpty
+                                    ? Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: _notices.map((notice) {
+                                          return Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 4.0),
+                                            child: Row(
+                                              children: [
+                                                const Icon(
+                                                    Icons.newspaper_rounded,
+                                                    size: 20,
+                                                    color: kMainColor),
+                                                const SizedBox(width: 8),
+                                                Text(notice,
+                                                    style: const TextStyle(
+                                                        fontSize: 14)),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      )
+                                    : const Text(
+                                        'No notices added yet.',
+                                        style: TextStyle(
+                                            fontSize: 14,
+                                            fontStyle: FontStyle.italic),
+                                      ),
+                              ),
+                              if (!_isEditingNoticeList)
+                                Align(
+                                  alignment: Alignment.bottomRight,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.add,
+                                        color: kMainColor, size: 24),
+                                    onPressed: () {
+                                      setState(() {
+                                        _noticeListController.text =
+                                            _notices.join(', ');
+                                        _isEditingNoticeList = true;
+                                      });
+                                    },
+                                  ),
+                                ),
+                            ],
+                          ),
+
+                          const SizedBox(height: 8),
+
+                          // Text Field and Confirm Icon for Editing
+                          if (_isEditingNoticeList)
+                            Column(
+                              children: [
+                                TextField(
+                                  controller: _noticeListController,
+                                  decoration: const InputDecoration(
+                                    hintText:
+                                        'Enter notices names separated by commas',
+                                    border: OutlineInputBorder(),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.check,
+                                        color: Colors.green, size: 28),
+                                    onPressed: _saveNotices, // Save function
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
                       ),
                     ],
                   ),

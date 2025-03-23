@@ -43,8 +43,8 @@ class _SignInPageState extends State<SignInPage> {
         final bool isCustomer = userProfile['role'] == 'customer';
         await prefs.setBool('is_customer', isCustomer);
 
-        // Navigate to Home Page
-        if (mounted) {
+        // Successful SignIn
+        Future.delayed(const Duration(seconds: 1), () {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
@@ -54,7 +54,7 @@ class _SignInPageState extends State<SignInPage> {
             ),
             (route) => false,
           );
-        }
+        });
       } else {
         CCustomSnackBar.show(
           context,
@@ -89,36 +89,41 @@ class _SignInPageState extends State<SignInPage> {
         ),
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // User Inputs
-            CCustomInputField(
-              label: 'Enter email',
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
+      body: SafeArea(
+        child: GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // User Inputs
+                CCustomInputField(
+                  label: 'Enter email',
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                CCustomInputField(
+                  label: 'Password',
+                  controller: _passwordController,
+                  obscureText: true,
+                ),
+                Spacer(),
+                // SignIn Button
+                Center(
+                  child: _isLoading
+                      ? CircularProgressIndicator()
+                      : CCustomButton(
+                          buttonColor: kMainColor,
+                          textColor: Colors.white,
+                          text: 'Sign In',
+                          onPressed: _signIn,
+                        ),
+                ),
+                SizedBox(height: 24),
+              ],
             ),
-            CCustomInputField(
-              label: 'Password',
-              controller: _passwordController,
-              obscureText: true,
-            ),
-            Spacer(),
-            // SignIn Button
-            Center(
-              child: _isLoading
-                  ? CircularProgressIndicator()
-                  : CCustomButton(
-                      buttonColor: kMainColor,
-                      textColor: Colors.white,
-                      text: 'Sign In',
-                      onPressed: _signIn,
-                    ),
-            ),
-            SizedBox(height: 24),
-          ],
+          ),
         ),
       ),
     );
