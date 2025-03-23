@@ -22,9 +22,11 @@ class _ClientHomePageState extends State<ClientHomePage> {
 
   int _selectedIndex = 0;
   bool _isEditingGameList = false;
-  bool _isEditingNoticeList = false;
   bool _isEditingName = false;
   bool _isEditingLocation = false;
+  bool _isSaving = false;
+  int? _editingIndex;
+  bool _isAddingNotice = false;
 
   String _userName = 'User';
   List<String> _games = [];
@@ -57,6 +59,49 @@ class _ClientHomePageState extends State<ClientHomePage> {
     });
   }
 
+  void _saveEditedNotice(int index) {
+    setState(() {
+      _notices[index] = _noticeListController.text.trim();
+      _editingIndex = null;
+    });
+    _updateNoticesInDatabase(); // Save updated list
+  }
+
+  void _saveNewNotice() {
+    setState(() {
+      String newNotice = _noticeListController.text.trim();
+      if (newNotice.isNotEmpty) {
+        _notices.add(newNotice);
+        _isAddingNotice = false;
+      }
+    });
+    _updateNoticesInDatabase();
+  }
+
+  Future<void> _updateNoticesInDatabase() async {
+    setState(() {
+      _isSaving = true;
+    });
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      await supabase
+          .from('game_center')
+          .update({'notices': _notices}).eq('client_id', userId);
+
+      CCustomSnackBar.show(
+          context, 'Notices updated successfully!', Colors.green);
+    } catch (e) {
+      CCustomSnackBar.show(context, 'Error updating Notices', Colors.red);
+    } finally {
+      setState(() {
+        _isSaving = false;
+      });
+    }
+  }
+
   Future<void> logout() async {
     final supabase = Supabase.instance.client;
     await supabase.auth.signOut();
@@ -70,7 +115,10 @@ class _ClientHomePageState extends State<ClientHomePage> {
     });
   }
 
-  Future<void> _saveChanges(String field, dynamic value) async {
+  Future<void> _saveCenterInfoChanges(String field, dynamic value) async {
+    setState(() {
+      _isSaving = true;
+    });
     try {
       final supabase = Supabase.instance.client;
       final userId = supabase.auth.currentUser?.id;
@@ -117,6 +165,10 @@ class _ClientHomePageState extends State<ClientHomePage> {
     } catch (e) {
       debugPrint('Error updating $field: $e');
       CCustomSnackBar.show(context, 'Error updating $field', Colors.red);
+    } finally {
+      setState(() {
+        _isSaving = false;
+      });
     }
   }
 
@@ -155,8 +207,8 @@ class _ClientHomePageState extends State<ClientHomePage> {
       _openingTimeController.text = openingTimeStr;
       _closingTimeController.text = closingTimeStr;
     });
-    await _saveChanges('opening_time', openingTimeStr);
-    await _saveChanges('closing_time', closingTimeStr);
+    await _saveCenterInfoChanges('opening_time', openingTimeStr);
+    await _saveCenterInfoChanges('closing_time', closingTimeStr);
   }
 
   TimeOfDay _parseTime(String timeStr) {
@@ -199,7 +251,15 @@ class _ClientHomePageState extends State<ClientHomePage> {
     }
   }
 
+  bool _isClosingTimeValid(TimeOfDay opening, TimeOfDay closing) {
+    return (closing.hour > opening.hour) ||
+        (closing.hour == opening.hour && closing.minute > opening.minute);
+  }
+
   Future<void> _saveGames() async {
+    setState(() {
+      _isSaving = true;
+    });
     try {
       final supabase = Supabase.instance.client;
       final userId = supabase.auth.currentUser?.id;
@@ -218,6 +278,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
       setState(() {
         _games = updatedGames;
         _isEditingGameList = false;
+        _isSaving = false;
       });
 
       CCustomSnackBar.show(
@@ -225,39 +286,6 @@ class _ClientHomePageState extends State<ClientHomePage> {
     } catch (e) {
       CCustomSnackBar.show(context, 'Error updating games', Colors.red);
     }
-  }
-
-  Future<void> _saveNotices() async {
-    try {
-      final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
-
-      List<String> updatedNotices = _noticeListController.text
-          .split(',')
-          .map((e) => e.trim())
-          .where((e) => e.isNotEmpty)
-          .toList();
-
-      await supabase
-          .from('game_center')
-          .update({'notices': updatedNotices}).eq('client_id', userId);
-
-      setState(() {
-        _notices = updatedNotices;
-        _isEditingNoticeList = false;
-      });
-
-      CCustomSnackBar.show(
-          context, 'Notices updated successfully!', Colors.green);
-    } catch (e) {
-      CCustomSnackBar.show(context, 'Error updating Notices', Colors.red);
-    }
-  }
-
-  bool _isClosingTimeValid(TimeOfDay opening, TimeOfDay closing) {
-    return (closing.hour > opening.hour) ||
-        (closing.hour == opening.hour && closing.minute > opening.minute);
   }
 
   @override
@@ -279,406 +307,460 @@ class _ClientHomePageState extends State<ClientHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      resizeToAvoidBottomInset: true,
-      appBar: AppBar(
-        title: Text(
-          'Hello, $_userName!',
-          style: kAppBarTextStyle2,
-        ),
-        centerTitle: true,
-        backgroundColor: kMainColor,
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.logout,
-              color: Colors.white,
-              weight: 10,
+    return Stack(children: [
+      AbsorbPointer(
+        absorbing: _isSaving,
+        child: Scaffold(
+          resizeToAvoidBottomInset: true,
+          appBar: AppBar(
+            title: Text(
+              'Hello, $_userName!',
+              style: kAppBarTextStyle2,
             ),
-            onPressed: () async {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
+            centerTitle: true,
+            backgroundColor: kMainColor,
+            actions: [
+              IconButton(
+                icon: const Icon(
+                  Icons.logout,
+                  color: Colors.white,
+                  weight: 10,
+                ),
+                onPressed: () async {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) {
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    },
+                  );
+                  await logout();
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => WelcomePage()),
+                    (route) => false,
                   );
                 },
-              );
-              await logout();
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => WelcomePage()),
-                (route) => false,
-              );
-            },
-            tooltip: "Sign Out",
+                tooltip: "Sign Out",
+              ),
+            ],
           ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Bookings'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.indigo,
-        onTap: _onItemTapped,
-      ),
-      body: GestureDetector(
-        onTap: () {
-          FocusScope.of(context).unfocus();
-          setState(() {
-            _isEditingName = false;
-            _isEditingLocation = false;
-            _isEditingGameList = false;
-            _isEditingNoticeList = false;
-          });
-        },
-        child: Column(
-          children: [
-            Expanded(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Center Information
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 24,
-                          horizontal: 32,
-                        ),
-                        decoration: BoxDecoration(
-                          color: kMainColor,
-                          borderRadius: BorderRadius.all(Radius.circular(48.0)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
-                              blurRadius: 10,
-                              spreadRadius: 7,
-                              offset: Offset(1, 4),
+          bottomNavigationBar: BottomNavigationBar(
+            items: const [
+              BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.book), label: 'Bookings'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.person), label: 'Profile'),
+            ],
+            currentIndex: _selectedIndex,
+            selectedItemColor: Colors.indigo,
+            onTap: _onItemTapped,
+          ),
+          body: GestureDetector(
+            onTap: () {
+              FocusScope.of(context).unfocus();
+              setState(() {
+                _isEditingName = false;
+                _isEditingLocation = false;
+                _isEditingGameList = false;
+              });
+            },
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Center Information
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 24,
+                              horizontal: 32,
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            // Center Name
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                _isEditingName
-                                    ? Expanded(
-                                        child: TextField(
-                                          style: TextStyle(color: Colors.white),
-                                          controller: _nameController,
-                                        ),
-                                      )
-                                    : Text(
-                                        _nameController.text.isEmpty
-                                            ? 'Gaming Center Name'
-                                            : _nameController.text,
-                                        style: TextStyle(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                IconButton(
-                                  icon: Icon(
-                                    _isEditingName ? Icons.check : Icons.edit,
-                                    color: Colors.grey,
-                                  ),
-                                  onPressed: () {
-                                    if (_isEditingName) {
-                                      _saveChanges(
-                                          'name', _nameController.text);
-                                    }
-                                    setState(
-                                        () => _isEditingName = !_isEditingName);
-                                  },
+                            decoration: BoxDecoration(
+                              color: kMainColor,
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(48.0)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.3),
+                                  blurRadius: 10,
+                                  spreadRadius: 7,
+                                  offset: Offset(1, 4),
                                 ),
                               ],
                             ),
-
-                            // Timings
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                // Center Name
                                 Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Icon(Icons.watch_later_rounded,
-                                        color: Colors.white),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Timings: ${_formatStoredTime(_openingTimeController.text)} - ${_formatStoredTime(_closingTimeController.text)}',
-                                      style: TextStyle(
-                                          color: Colors.white, fontSize: 16),
+                                    _isEditingName
+                                        ? Expanded(
+                                            child: TextField(
+                                              style: TextStyle(
+                                                  color: Colors.white),
+                                              controller: _nameController,
+                                            ),
+                                          )
+                                        : Text(
+                                            _nameController.text.isEmpty
+                                                ? 'Gaming Center Name'
+                                                : _nameController.text,
+                                            style: TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                    IconButton(
+                                      icon: Icon(
+                                        _isEditingName
+                                            ? Icons.check
+                                            : Icons.edit,
+                                        color: Colors.grey,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _isEditingName = !_isEditingName;
+                                        });
+                                        if (_isEditingName) {
+                                          setState(() {});
+                                          _saveCenterInfoChanges(
+                                              'name', _nameController.text);
+                                        }
+                                      },
                                     ),
                                   ],
                                 ),
-                                IconButton(
-                                  icon: Icon(
-                                    Icons.edit,
-                                    color: Colors.grey,
-                                  ),
-                                  onPressed: () {
-                                    _pickTime(context); // Show the time picker
-                                  },
-                                ),
-                              ],
-                            ),
 
-                            // Location
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Icon(Icons.location_on, color: Colors.white),
-                                SizedBox(width: 8),
-                                Expanded(
-                                  child: _isEditingLocation
-                                      ? TextField(
-                                          style: TextStyle(color: Colors.white),
-                                          controller: _locationController,
-                                          maxLines:
-                                              null, // Allows dynamic expansion
-                                          decoration: InputDecoration(
-                                            border: InputBorder.none,
-                                          ),
-                                        )
-                                      : Text(
-                                          _locationController.text.isEmpty
-                                              ? 'Enter Location'
-                                              : _locationController.text,
+                                // Timings
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Icon(Icons.watch_later_rounded,
+                                            color: Colors.white),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Timings: ${_formatStoredTime(_openingTimeController.text)} - ${_formatStoredTime(_closingTimeController.text)}',
                                           style: TextStyle(
-                                              fontSize: 16,
-                                              color: Colors.white),
-                                          softWrap: true,
+                                              color: Colors.white,
+                                              fontSize: 16),
                                         ),
+                                      ],
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        Icons.edit,
+                                        color: Colors.grey,
+                                      ),
+                                      onPressed: () {
+                                        _pickTime(
+                                            context); // Show the time picker
+                                      },
+                                    ),
+                                  ],
                                 ),
-                                IconButton(
-                                  icon: Icon(
-                                    _isEditingLocation
-                                        ? Icons.check
-                                        : Icons.edit,
-                                    color: Colors.grey,
+
+                                // Location
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.location_on,
+                                        color: Colors.white),
+                                    SizedBox(width: 8),
+                                    Expanded(
+                                      child: _isEditingLocation
+                                          ? TextField(
+                                              style: TextStyle(
+                                                  color: Colors.white),
+                                              controller: _locationController,
+                                              maxLines:
+                                                  null, // Allows dynamic expansion
+                                              decoration: InputDecoration(
+                                                border: InputBorder.none,
+                                              ),
+                                            )
+                                          : Text(
+                                              _locationController.text.isEmpty
+                                                  ? 'Enter Location'
+                                                  : _locationController.text,
+                                              style: TextStyle(
+                                                  fontSize: 16,
+                                                  color: Colors.white),
+                                              softWrap: true,
+                                            ),
+                                    ),
+                                    IconButton(
+                                      icon: Icon(
+                                        _isEditingLocation
+                                            ? Icons.check
+                                            : Icons.edit,
+                                        color: Colors.grey,
+                                      ),
+                                      onPressed: () {
+                                        setState(() {
+                                          _isEditingLocation =
+                                              !_isEditingLocation;
+                                        });
+                                        if (_isEditingLocation) {
+                                          _saveCenterInfoChanges('location',
+                                              _locationController.text);
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 32),
+
+                          // Games List Section
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Games Available',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+
+                              // Games List with Proper Layout
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: _games.isNotEmpty
+                                        ? Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: _games.map((game) {
+                                              return Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                        vertical: 4.0),
+                                                child: Row(
+                                                  children: [
+                                                    const Icon(
+                                                        Icons.sports_esports,
+                                                        size: 20,
+                                                        color: kMainColor),
+                                                    const SizedBox(width: 8),
+                                                    Text(game,
+                                                        style: const TextStyle(
+                                                            fontSize: 14)),
+                                                  ],
+                                                ),
+                                              );
+                                            }).toList(),
+                                          )
+                                        : const Text(
+                                            'No games added yet.',
+                                            style: TextStyle(
+                                                fontSize: 14,
+                                                fontStyle: FontStyle.italic),
+                                          ),
                                   ),
+
+                                  // Edit Icon Aligned to Bottom-Right
+                                  if (!_isEditingGameList)
+                                    Align(
+                                      alignment: Alignment.bottomRight,
+                                      child: IconButton(
+                                        icon: const Icon(Icons.edit,
+                                            color: kMainColor, size: 24),
+                                        onPressed: () {
+                                          setState(() {
+                                            _gameListController.text =
+                                                _games.join(', ');
+                                            _isEditingGameList = true;
+                                          });
+                                        },
+                                      ),
+                                    ),
+                                ],
+                              ),
+
+                              const SizedBox(height: 8),
+
+                              // Text Field and Confirm Icon for Editing
+                              if (_isEditingGameList)
+                                Column(
+                                  children: [
+                                    TextField(
+                                      controller: _gameListController,
+                                      decoration: const InputDecoration(
+                                        hintText:
+                                            'Enter game names separated by commas',
+                                        border: OutlineInputBorder(),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+
+                                    // Save Icon
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: IconButton(
+                                        icon: const Icon(Icons.check,
+                                            color: Colors.green, size: 28),
+                                        onPressed: () {
+                                          _saveGames();
+                                        },
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+
+                          // Notices List Section
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Notices',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold, fontSize: 16),
+                              ),
+
+                              // Notices List
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  for (int i = 0; i < _notices.length; i++)
+
+                                    // Existing Notices
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.newspaper_rounded,
+                                            size: 20, color: kMainColor),
+                                        const SizedBox(width: 8),
+                                        _editingIndex == i
+                                            ? Expanded(
+                                                child: TextField(
+                                                  controller:
+                                                      _noticeListController,
+                                                  autofocus: true,
+                                                  decoration:
+                                                      const InputDecoration(
+                                                    border:
+                                                        OutlineInputBorder(),
+                                                  ),
+                                                ),
+                                              )
+                                            : Expanded(
+                                                child: Text(
+                                                  _notices[i],
+                                                  style: const TextStyle(
+                                                      fontSize: 14),
+                                                ),
+                                              ),
+                                        IconButton(
+                                          icon: Icon(
+                                            _editingIndex == i
+                                                ? Icons.check
+                                                : Icons.edit,
+                                            color: _editingIndex == i
+                                                ? Colors.green
+                                                : kMainColor,
+                                            size: 24,
+                                          ),
+                                          onPressed: () {
+                                            setState(() {
+                                              if (_editingIndex == i) {
+                                                _saveEditedNotice(i);
+                                              } else {
+                                                _noticeListController.text =
+                                                    _notices[i];
+                                                _editingIndex = i;
+                                              }
+                                            });
+                                          },
+                                        ),
+                                      ],
+                                    ),
+
+                                  // Add new notice input field
+                                  if (_isAddingNotice)
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.newspaper_rounded,
+                                            size: 20, color: kMainColor),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: TextField(
+                                            controller: _noticeListController,
+                                            autofocus: true,
+                                            decoration: const InputDecoration(
+                                              hintText: 'Enter new notice',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.check,
+                                              color: Colors.green, size: 24),
+                                          onPressed: () {
+                                            _saveNewNotice();
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                ],
+                              ),
+
+                              // Add new notice button
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: IconButton(
+                                  icon: const Icon(Icons.add,
+                                      color: kMainColor, size: 24),
                                   onPressed: () {
-                                    if (_isEditingLocation) {
-                                      _saveChanges(
-                                          'location', _locationController.text);
-                                    }
-                                    setState(() => _isEditingLocation =
-                                        !_isEditingLocation);
+                                    setState(() {
+                                      _noticeListController.clear();
+                                      _isAddingNotice = true;
+                                    });
                                   },
                                 ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 32),
-
-                      // Games List Section
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Games Available',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-
-                          // Games List with Proper Layout
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: _games.isNotEmpty
-                                    ? Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: _games.map((game) {
-                                          return Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                                vertical: 4.0),
-                                            child: Row(
-                                              children: [
-                                                const Icon(Icons.sports_esports,
-                                                    size: 20,
-                                                    color: kMainColor),
-                                                const SizedBox(width: 8),
-                                                Text(game,
-                                                    style: const TextStyle(
-                                                        fontSize: 14)),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList(),
-                                      )
-                                    : const Text(
-                                        'No games added yet.',
-                                        style: TextStyle(
-                                            fontSize: 14,
-                                            fontStyle: FontStyle.italic),
-                                      ),
                               ),
-
-                              // Edit Icon Aligned to Bottom-Right
-                              if (!_isEditingGameList)
-                                Align(
-                                  alignment: Alignment.bottomRight,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.edit,
-                                        color: kMainColor, size: 24),
-                                    onPressed: () {
-                                      setState(() {
-                                        _gameListController.text =
-                                            _games.join(', ');
-                                        _isEditingGameList = true;
-                                      });
-                                    },
-                                  ),
-                                ),
                             ],
                           ),
-
-                          const SizedBox(height: 8),
-
-                          // Text Field and Confirm Icon for Editing
-                          if (_isEditingGameList)
-                            Column(
-                              children: [
-                                TextField(
-                                  controller: _gameListController,
-                                  decoration: const InputDecoration(
-                                    hintText:
-                                        'Enter game names separated by commas',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-
-                                // Save Icon
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.check,
-                                        color: Colors.green, size: 28),
-                                    onPressed: _saveGames, // Save function
-                                  ),
-                                ),
-                              ],
-                            ),
                         ],
                       ),
-
-                      // Notices List Section
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Notices',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
-                                child: _notices.isNotEmpty
-                                    ? Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: _notices.map((notice) {
-                                          return Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                                vertical: 4.0),
-                                            child: Row(
-                                              children: [
-                                                const Icon(
-                                                    Icons.newspaper_rounded,
-                                                    size: 20,
-                                                    color: kMainColor),
-                                                const SizedBox(width: 8),
-                                                Text(notice,
-                                                    style: const TextStyle(
-                                                        fontSize: 14)),
-                                              ],
-                                            ),
-                                          );
-                                        }).toList(),
-                                      )
-                                    : const Text(
-                                        'No notices added yet.',
-                                        style: TextStyle(
-                                            fontSize: 14,
-                                            fontStyle: FontStyle.italic),
-                                      ),
-                              ),
-                              if (!_isEditingNoticeList)
-                                Align(
-                                  alignment: Alignment.bottomRight,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.add,
-                                        color: kMainColor, size: 24),
-                                    onPressed: () {
-                                      setState(() {
-                                        _noticeListController.text =
-                                            _notices.join(', ');
-                                        _isEditingNoticeList = true;
-                                      });
-                                    },
-                                  ),
-                                ),
-                            ],
-                          ),
-
-                          const SizedBox(height: 8),
-
-                          // Text Field and Confirm Icon for Editing
-                          if (_isEditingNoticeList)
-                            Column(
-                              children: [
-                                TextField(
-                                  controller: _noticeListController,
-                                  decoration: const InputDecoration(
-                                    hintText:
-                                        'Enter notices names separated by commas',
-                                    border: OutlineInputBorder(),
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Align(
-                                  alignment: Alignment.centerRight,
-                                  child: IconButton(
-                                    icon: const Icon(Icons.check,
-                                        color: Colors.green, size: 28),
-                                    onPressed: _saveNotices, // Save function
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
-    );
+      if (_isSaving)
+        Positioned.fill(
+          child: Container(
+            color:
+                Colors.black.withValues(alpha: 0.5), // Semi-transparent overlay
+            child: const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          ),
+        ),
+    ]);
   }
 }
