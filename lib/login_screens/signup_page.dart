@@ -80,6 +80,12 @@ class _SignUpPageState extends State<SignUpPage> {
         },
       );
 
+      if (response.user == null) {
+        CCustomSnackBar.show(context, 'Sign-up failed. Try again.', Colors.red);
+        setState(() => _isLoading = false);
+        return;
+      }
+
       if (response.user != null) {
         final userId = response.user!.id;
 
@@ -91,14 +97,12 @@ class _SignUpPageState extends State<SignUpPage> {
           "role": _isCustomer ? "customer" : "owner",
         });
 
-        Future.delayed(const Duration(seconds: 1), () {
-          CCustomSnackBar.show(context,
-              "Verify your email to complete registration!", Colors.green);
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => SignInPage()),
-          );
-        });
+        CCustomSnackBar.show(context,
+            "Verify your email to complete registration!", Colors.green);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => SignInPage()),
+        );
       } else {
         CCustomSnackBar.show(
           context,

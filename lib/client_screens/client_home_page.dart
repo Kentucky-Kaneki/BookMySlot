@@ -4,6 +4,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:book_my_slot/custom_widgets.dart';
 import 'package:book_my_slot/constants.dart';
 import 'package:book_my_slot/login_screens/welcome_page.dart';
+import 'client_bookings_page.dart';
+import 'client_profile_page.dart';
 
 class ClientHomePage extends StatefulWidget {
   const ClientHomePage({super.key});
@@ -24,7 +26,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
   bool _isEditingGameList = false;
   bool _isEditingName = false;
   bool _isEditingLocation = false;
-  bool _isSaving = false;
+  bool _isLoading = false;
   int? _editingIndex;
   bool _isAddingNotice = false;
 
@@ -33,6 +35,10 @@ class _ClientHomePageState extends State<ClientHomePage> {
   List<String> _notices = [];
 
   Future<void> _fetchData() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     final supabase = Supabase.instance.client;
     final userId = supabase.auth.currentUser?.id;
 
@@ -56,68 +62,13 @@ class _ClientHomePageState extends State<ClientHomePage> {
       _locationController.text = centerResponse?['location'] ?? '';
       _games = List<String>.from(centerResponse?['games'] ?? []);
       _notices = List<String>.from(centerResponse?['notices'] ?? []);
-    });
-  }
-
-  void _saveEditedNotice(int index) {
-    setState(() {
-      _notices[index] = _noticeListController.text.trim();
-      _editingIndex = null;
-    });
-    _updateNoticesInDatabase(); // Save updated list
-  }
-
-  void _saveNewNotice() {
-    setState(() {
-      String newNotice = _noticeListController.text.trim();
-      if (newNotice.isNotEmpty) {
-        _notices.add(newNotice);
-        _isAddingNotice = false;
-      }
-    });
-    _updateNoticesInDatabase();
-  }
-
-  Future<void> _updateNoticesInDatabase() async {
-    setState(() {
-      _isSaving = true;
-    });
-    try {
-      final supabase = Supabase.instance.client;
-      final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
-
-      await supabase
-          .from('game_center')
-          .update({'notices': _notices}).eq('client_id', userId);
-
-      CCustomSnackBar.show(
-          context, 'Notices updated successfully!', Colors.green);
-    } catch (e) {
-      CCustomSnackBar.show(context, 'Error updating Notices', Colors.red);
-    } finally {
-      setState(() {
-        _isSaving = false;
-      });
-    }
-  }
-
-  Future<void> logout() async {
-    final supabase = Supabase.instance.client;
-    await supabase.auth.signOut();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
+      _isLoading = false;
     });
   }
 
   Future<void> _saveCenterInfoChanges(String field, dynamic value) async {
     setState(() {
-      _isSaving = true;
+      _isLoading = true;
     });
     try {
       final supabase = Supabase.instance.client;
@@ -167,9 +118,44 @@ class _ClientHomePageState extends State<ClientHomePage> {
       CCustomSnackBar.show(context, 'Error updating $field', Colors.red);
     } finally {
       setState(() {
-        _isSaving = false;
+        _isLoading = false;
       });
     }
+  }
+
+  Future<void> logout() async {
+    final supabase = Supabase.instance.client;
+    await supabase.auth.signOut();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+  }
+
+  void _onItemTapped(int index) {
+    if (_selectedIndex == index) return;
+
+    Widget nextPage;
+    switch (index) {
+      case 0:
+        nextPage = const ClientHomePage();
+        break;
+      case 1:
+        nextPage = const ClientBookingsPage();
+        break;
+      case 2:
+        nextPage = const ClientProfilePage();
+        break;
+      default:
+        return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => nextPage),
+    );
+
+    setState(() {
+      _selectedIndex = index;
+    });
   }
 
   Future<void> _pickTime(BuildContext context) async {
@@ -258,7 +244,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
 
   Future<void> _saveGames() async {
     setState(() {
-      _isSaving = true;
+      _isLoading = true;
     });
     try {
       final supabase = Supabase.instance.client;
@@ -278,13 +264,61 @@ class _ClientHomePageState extends State<ClientHomePage> {
       setState(() {
         _games = updatedGames;
         _isEditingGameList = false;
-        _isSaving = false;
+        _isLoading = false;
       });
 
       CCustomSnackBar.show(
           context, 'Games updated successfully!', Colors.green);
     } catch (e) {
       CCustomSnackBar.show(context, 'Error updating games', Colors.red);
+    }
+  }
+
+  void _saveEditedNotice(int index) {
+    setState(() {
+      _notices[index] = _noticeListController.text.trim();
+      if (_notices[index].isEmpty) {
+        _notices.removeAt(index);
+      }
+      _editingIndex = null;
+    });
+    _updateNoticesInDatabase();
+  }
+
+  void _saveNewNotice() {
+    setState(() {
+      String newNotice = _noticeListController.text.trim();
+      if (newNotice.isNotEmpty) {
+        _notices.add(newNotice);
+        _isAddingNotice = false;
+      }
+    });
+    _updateNoticesInDatabase();
+  }
+
+  Future<void> _updateNoticesInDatabase() async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      _notices.removeWhere((notice) => notice.trim().isEmpty);
+
+      await supabase
+          .from('game_center')
+          .update({'notices': _notices}).eq('client_id', userId);
+
+      CCustomSnackBar.show(
+          context, 'Notices updated successfully!', Colors.green);
+    } catch (e) {
+      CCustomSnackBar.show(context, 'Error updating Notices', Colors.red);
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -309,7 +343,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
   Widget build(BuildContext context) {
     return Stack(children: [
       AbsorbPointer(
-        absorbing: _isSaving,
+        absorbing: _isLoading,
         child: Scaffold(
           resizeToAvoidBottomInset: true,
           appBar: AppBar(
@@ -348,6 +382,9 @@ class _ClientHomePageState extends State<ClientHomePage> {
             ],
           ),
           bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _selectedIndex,
+            selectedItemColor: kMainColor,
+            onTap: _onItemTapped,
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
               BottomNavigationBarItem(
@@ -355,9 +392,6 @@ class _ClientHomePageState extends State<ClientHomePage> {
               BottomNavigationBarItem(
                   icon: Icon(Icons.person), label: 'Profile'),
             ],
-            currentIndex: _selectedIndex,
-            selectedItemColor: Colors.indigo,
-            onTap: _onItemTapped,
           ),
           body: GestureDetector(
             onTap: () {
@@ -410,6 +444,14 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                               style: TextStyle(
                                                   color: Colors.white),
                                               controller: _nameController,
+                                              decoration: const InputDecoration(
+                                                border: UnderlineInputBorder(),
+                                                enabledBorder:
+                                                    UnderlineInputBorder(
+                                                  borderSide: BorderSide(
+                                                      color: Colors.grey),
+                                                ),
+                                              ),
                                             ),
                                           )
                                         : Text(
@@ -431,13 +473,14 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                       ),
                                       onPressed: () {
                                         setState(() {
-                                          _isEditingName = !_isEditingName;
+                                          if (_isEditingName) {
+                                            // Save only when toggling from edit mode to normal mode
+                                            _saveCenterInfoChanges(
+                                                'name', _nameController.text);
+                                          }
+                                          _isEditingName =
+                                              !_isEditingName; // Toggle edit mode
                                         });
-                                        if (_isEditingName) {
-                                          setState(() {});
-                                          _saveCenterInfoChanges(
-                                              'name', _nameController.text);
-                                        }
                                       },
                                     ),
                                   ],
@@ -489,8 +532,13 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                               controller: _locationController,
                                               maxLines:
                                                   null, // Allows dynamic expansion
-                                              decoration: InputDecoration(
-                                                border: InputBorder.none,
+                                              decoration: const InputDecoration(
+                                                border: UnderlineInputBorder(),
+                                                enabledBorder:
+                                                    UnderlineInputBorder(
+                                                  borderSide: BorderSide(
+                                                      color: Colors.grey),
+                                                ),
                                               ),
                                             )
                                           : Text(
@@ -512,13 +560,13 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                       ),
                                       onPressed: () {
                                         setState(() {
+                                          if (_isEditingLocation) {
+                                            _saveCenterInfoChanges('location',
+                                                _locationController.text);
+                                          }
                                           _isEditingLocation =
                                               !_isEditingLocation;
                                         });
-                                        if (_isEditingLocation) {
-                                          _saveCenterInfoChanges('location',
-                                              _locationController.text);
-                                        }
                                       },
                                     ),
                                   ],
@@ -532,16 +580,40 @@ class _ClientHomePageState extends State<ClientHomePage> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Games Available',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text(
+                                    'Games Available',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  _isEditingGameList
+                                      ? IconButton(
+                                          icon: const Icon(Icons.check,
+                                              color: Colors.green, size: 28),
+                                          onPressed: () {
+                                            _saveGames();
+                                          },
+                                        )
+                                      : IconButton(
+                                          icon: const Icon(Icons.edit,
+                                              color: kMainColor, size: 24),
+                                          onPressed: () {
+                                            setState(() {
+                                              _gameListController.text =
+                                                  _games.join(', ');
+                                              _isEditingGameList = true;
+                                            });
+                                          },
+                                        ),
+                                ],
                               ),
-                              const SizedBox(height: 8),
 
-                              // Games List with Proper Layout
+                              // List
                               Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
@@ -577,23 +649,6 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                                 fontStyle: FontStyle.italic),
                                           ),
                                   ),
-
-                                  // Edit Icon Aligned to Bottom-Right
-                                  if (!_isEditingGameList)
-                                    Align(
-                                      alignment: Alignment.bottomRight,
-                                      child: IconButton(
-                                        icon: const Icon(Icons.edit,
-                                            color: kMainColor, size: 24),
-                                        onPressed: () {
-                                          setState(() {
-                                            _gameListController.text =
-                                                _games.join(', ');
-                                            _isEditingGameList = true;
-                                          });
-                                        },
-                                      ),
-                                    ),
                                 ],
                               ),
 
@@ -611,23 +666,11 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                         border: OutlineInputBorder(),
                                       ),
                                     ),
-                                    const SizedBox(height: 8),
-
-                                    // Save Icon
-                                    Align(
-                                      alignment: Alignment.centerRight,
-                                      child: IconButton(
-                                        icon: const Icon(Icons.check,
-                                            color: Colors.green, size: 28),
-                                        onPressed: () {
-                                          _saveGames();
-                                        },
-                                      ),
-                                    ),
                                   ],
                                 ),
                             ],
                           ),
+                          SizedBox(height: 24),
 
                           // Notices List Section
                           Column(
@@ -644,57 +687,57 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   for (int i = 0; i < _notices.length; i++)
-
-                                    // Existing Notices
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.newspaper_rounded,
-                                            size: 20, color: kMainColor),
-                                        const SizedBox(width: 8),
-                                        _editingIndex == i
-                                            ? Expanded(
-                                                child: TextField(
-                                                  controller:
-                                                      _noticeListController,
-                                                  autofocus: true,
-                                                  decoration:
-                                                      const InputDecoration(
-                                                    border:
-                                                        OutlineInputBorder(),
+                                    if (_notices[i].trim().isNotEmpty)
+                                      // Existing Notices
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.newspaper_rounded,
+                                              size: 20, color: kMainColor),
+                                          const SizedBox(width: 8),
+                                          _editingIndex == i
+                                              ? Expanded(
+                                                  child: TextField(
+                                                    controller:
+                                                        _noticeListController,
+                                                    autofocus: true,
+                                                    decoration:
+                                                        const InputDecoration(
+                                                      border:
+                                                          OutlineInputBorder(),
+                                                    ),
+                                                  ),
+                                                )
+                                              : Expanded(
+                                                  child: Text(
+                                                    _notices[i],
+                                                    style: const TextStyle(
+                                                        fontSize: 14),
                                                   ),
                                                 ),
-                                              )
-                                            : Expanded(
-                                                child: Text(
-                                                  _notices[i],
-                                                  style: const TextStyle(
-                                                      fontSize: 14),
-                                                ),
-                                              ),
-                                        IconButton(
-                                          icon: Icon(
-                                            _editingIndex == i
-                                                ? Icons.check
-                                                : Icons.edit,
-                                            color: _editingIndex == i
-                                                ? Colors.green
-                                                : kMainColor,
-                                            size: 24,
+                                          IconButton(
+                                            icon: Icon(
+                                              _editingIndex == i
+                                                  ? Icons.check
+                                                  : Icons.edit,
+                                              color: _editingIndex == i
+                                                  ? Colors.green
+                                                  : kMainColor,
+                                              size: 24,
+                                            ),
+                                            onPressed: () {
+                                              setState(() {
+                                                if (_editingIndex == i) {
+                                                  _saveEditedNotice(i);
+                                                } else {
+                                                  _noticeListController.text =
+                                                      _notices[i];
+                                                  _editingIndex = i;
+                                                }
+                                              });
+                                            },
                                           ),
-                                          onPressed: () {
-                                            setState(() {
-                                              if (_editingIndex == i) {
-                                                _saveEditedNotice(i);
-                                              } else {
-                                                _noticeListController.text =
-                                                    _notices[i];
-                                                _editingIndex = i;
-                                              }
-                                            });
-                                          },
-                                        ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
 
                                   // Add new notice input field
                                   if (_isAddingNotice)
@@ -751,7 +794,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
           ),
         ),
       ),
-      if (_isSaving)
+      if (_isLoading)
         Positioned.fill(
           child: Container(
             color:

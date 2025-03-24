@@ -1,64 +1,21 @@
+import 'package:book_my_slot/client_screens/client_home_page.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:book_my_slot/custom_widgets.dart';
-import 'package:book_my_slot/constants.dart';
-import 'package:book_my_slot/login_screens/welcome_page.dart';
 
-class CustomerHomePage extends StatelessWidget {
-  const CustomerHomePage({super.key});
+import 'client_bookings_page.dart';
 
-  Future<void> logout() async {
-    final supabase = Supabase.instance.client;
-    await supabase.auth.signOut();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-  }
+class ClientProfilePage extends StatelessWidget {
+  const ClientProfilePage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Hello Abc!',
-          style: TextStyle(color: Colors.white),
-        ),
-        backgroundColor: kMainColor,
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.logout,
-              color: Colors.white,
-              weight: 10,
-            ),
-            onPressed: () async {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
-                },
-              );
-              await logout();
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => WelcomePage()),
-                (route) => false,
-              );
-            },
-            tooltip: "Sign Out",
-          ),
-        ],
+        title: const Text('Hello, Abc!'),
+        centerTitle: true,
+        backgroundColor: Colors.indigo,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Bookings'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
+      bottomNavigationBar:
+          _buildBottomNavigationBar(context, 2), // Profile page index
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
@@ -71,10 +28,10 @@ class CustomerHomePage extends StatelessWidget {
                   color: Colors.indigo,
                   borderRadius: BorderRadius.circular(16.0),
                 ),
-                child: Column(
+                child: const Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Gaming center Name',
                       style: TextStyle(
                         fontSize: 18,
@@ -82,9 +39,9 @@ class CustomerHomePage extends StatelessWidget {
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(
-                      children: const [
+                      children: [
                         Icon(Icons.circle, color: Colors.green, size: 12),
                         SizedBox(width: 8),
                         Text(
@@ -93,9 +50,9 @@ class CustomerHomePage extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    SizedBox(height: 8),
                     Row(
-                      children: const [
+                      children: [
                         Icon(Icons.location_on, color: Colors.white),
                         SizedBox(width: 8),
                         Text(
@@ -115,7 +72,7 @@ class CustomerHomePage extends StatelessWidget {
                   fontSize: 16,
                 ),
               ),
-              const Text('.\n.\n.\n.'),
+              const Text('Call Of Duty'),
               const SizedBox(height: 24),
               const Text(
                 'Notices',
@@ -124,7 +81,7 @@ class CustomerHomePage extends StatelessWidget {
                   fontSize: 16,
                 ),
               ),
-              const Text('There are no new notices available.'),
+              const Text('+Add Notice'),
               const SizedBox(height: 40),
               Center(
                 child: ElevatedButton(
@@ -136,7 +93,13 @@ class CustomerHomePage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const DateTimePage()),
+                    );
+                  },
                   child: const Text('Book Now'),
                 ),
               ),
@@ -146,4 +109,40 @@ class CustomerHomePage extends StatelessWidget {
       ),
     );
   }
+}
+
+// Bottom Navigation Bar Function
+Widget _buildBottomNavigationBar(BuildContext context, int currentIndex) {
+  return BottomNavigationBar(
+    currentIndex: currentIndex,
+    onTap: (index) {
+      if (index == currentIndex) return; // Prevent redundant navigation
+
+      Widget nextPage;
+      switch (index) {
+        case 0:
+          nextPage =
+              const ClientHomePage(); // Replace with your actual Home page widget
+          break;
+        case 1:
+          nextPage = const ClientBookingsPage(); // Bookings page
+          break;
+        case 2:
+          nextPage = const ClientProfilePage(); // Profile page
+          break;
+        default:
+          return;
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => nextPage),
+      );
+    },
+    items: const [
+      BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+      BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Bookings'),
+      BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+    ],
+  );
 }

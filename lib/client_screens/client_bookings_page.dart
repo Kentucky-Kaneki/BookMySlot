@@ -1,7 +1,9 @@
+import 'package:book_my_slot/client_screens/client_home_page.dart';
+import 'package:book_my_slot/client_screens/client_profile_page.dart';
 import 'package:flutter/material.dart';
 
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class ClientBookingsPage extends StatelessWidget {
+  const ClientBookingsPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -11,13 +13,8 @@ class HomePage extends StatelessWidget {
         centerTitle: true,
         backgroundColor: Colors.indigo,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        items: [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Bookings'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
+      bottomNavigationBar:
+          _buildBottomNavigationBar(context, 1), // Set index to 1 for Bookings
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: SingleChildScrollView(
@@ -96,7 +93,7 @@ class HomePage extends StatelessWidget {
                     ),
                   ),
                   onPressed: () {
-                    Navigator.push(
+                    Navigator.pushReplacement(
                       context,
                       MaterialPageRoute(
                           builder: (context) => const DateTimePage()),
@@ -130,6 +127,8 @@ class _DateTimePageState extends State<DateTimePage> {
         title: const Text('Select date & time'),
         backgroundColor: Colors.indigo,
       ),
+      bottomNavigationBar:
+          _buildBottomNavigationBar(context, 1), // Set index to 1 for Bookings
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -210,4 +209,41 @@ class _DateTimePageState extends State<DateTimePage> {
       ),
     );
   }
+}
+
+// Bottom Navigation Bar Function
+Widget _buildBottomNavigationBar(BuildContext context, int currentIndex) {
+  return BottomNavigationBar(
+    currentIndex: currentIndex,
+    onTap: (index) {
+      if (index == currentIndex) return; // Prevent unnecessary navigation
+
+      Widget nextPage;
+      switch (index) {
+        case 0:
+          nextPage =
+              const ClientHomePage(); // Replace with your Home Screen Widget
+          break;
+        case 1:
+          nextPage = const ClientBookingsPage(); // Keep it in Bookings
+          break;
+        case 2:
+          nextPage =
+              const ClientProfilePage(); // Replace with your Profile Screen Widget
+          break;
+        default:
+          return;
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => nextPage),
+      );
+    },
+    items: const [
+      BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+      BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Bookings'),
+      BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+    ],
+  );
 }

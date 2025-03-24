@@ -44,7 +44,8 @@ class _SignInPageState extends State<SignInPage> {
         await prefs.setBool('is_customer', isCustomer);
 
         // Successful SignIn
-        Future.delayed(const Duration(seconds: 1), () {
+        if (mounted) {
+          await Future.delayed(const Duration(milliseconds: 200));
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
@@ -54,7 +55,7 @@ class _SignInPageState extends State<SignInPage> {
             ),
             (route) => false,
           );
-        });
+        }
       } else {
         CCustomSnackBar.show(
           context,
@@ -109,6 +110,7 @@ class _SignInPageState extends State<SignInPage> {
                   obscureText: true,
                 ),
                 Spacer(),
+
                 // SignIn Button
                 Center(
                   child: _isLoading
