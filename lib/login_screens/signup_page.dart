@@ -104,18 +104,18 @@ class _SignUpPageState extends State<SignUpPage> {
           MaterialPageRoute(builder: (context) => SignInPage()),
         );
       } else {
-        CCustomSnackBar.show(
-          context,
-          'Sign-up failed. Try again.',
-          Colors.red,
-        );
+        CCustomSnackBar.show(context, 'Sign-up failed. Try again.', Colors.red);
       }
     } on AuthException catch (e) {
-      CCustomSnackBar.show(
-        context,
-        e.message,
-        Colors.red,
-      );
+      CCustomSnackBar.show(context, e.message, Colors.red);
+    } on PostgrestException catch (e) {
+      if (e.code == '23505') {
+        CCustomSnackBar.show(
+            context, 'Phone number already exists', Colors.red);
+      }
+      if (e.code == '23503') {
+        CCustomSnackBar.show(context, 'User already exists', Colors.red);
+      }
     } finally {
       setState(() {
         _isLoading = false;

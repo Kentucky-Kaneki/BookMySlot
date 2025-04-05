@@ -19,7 +19,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
     Widget nextPage;
     switch (index) {
       case 0:
-        nextPage = const SearchPage();
+        nextPage = const CenterSearchPage();
         break;
       case 1:
         nextPage = const YourBookings();

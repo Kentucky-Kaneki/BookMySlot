@@ -1,13 +1,17 @@
 import 'package:book_my_slot/customer_screens/center_details_page.dart';
+import 'package:book_my_slot/customer_screens/center_search_page.dart';
 import 'package:flutter/material.dart';
 import 'package:book_my_slot/constants.dart';
 import 'package:book_my_slot/custom_widgets.dart';
 
-class YourBookings extends StatelessWidget {
-  const YourBookings({
-    super.key,
-  });
+class YourBookings extends StatefulWidget {
+  const YourBookings({super.key});
 
+  @override
+  State<YourBookings> createState() => _YourBookingsState();
+}
+
+class _YourBookingsState extends State<YourBookings> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -37,7 +41,7 @@ class YourBookings extends StatelessWidget {
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(
-                        builder: (context) => const CustomerHomePage()),
+                        builder: (context) => const CenterSearchPage()),
                     (route) => false,
                   );
                 },

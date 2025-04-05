@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'login_screens/welcome_page.dart';
-import 'package:book_my_slot/customer_screens/center_details_page.dart';
+import 'customer_screens/center_search_page.dart';
 import 'client_screens/client_home_page.dart';
 
 void main() async {
@@ -45,7 +45,7 @@ class BMS extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData.light(),
       home: isLoggedIn
-          ? (isCustomer ? const CustomerHomePage() : const ClientHomePage())
+          ? (isCustomer ? const CenterSearchPage() : const ClientHomePage())
           : const WelcomePage(),
     );
   }

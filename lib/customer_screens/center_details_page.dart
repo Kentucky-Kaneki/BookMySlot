@@ -6,14 +6,42 @@ import 'package:book_my_slot/constants.dart';
 import 'package:book_my_slot/login_screens/welcome_page.dart';
 import 'slot_booking_page.dart';
 
-class CustomerHomePage extends StatelessWidget {
-  const CustomerHomePage({super.key});
+class CenterDetailsPage extends StatefulWidget {
+  final String centerId;
+
+  const CenterDetailsPage({super.key, required this.centerId});
+
+  @override
+  State<CenterDetailsPage> createState() => _CenterDetailsPageState();
+}
+
+class _CenterDetailsPageState extends State<CenterDetailsPage> {
+  final SupabaseClient supabase = Supabase.instance.client;
+  Map<String, dynamic>? centerDetails;
 
   Future<void> logout() async {
     final supabase = Supabase.instance.client;
     await supabase.auth.signOut();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCenterDetails();
+  }
+
+  Future<void> _fetchCenterDetails() async {
+    final response = await supabase
+        .from('gaming_center')
+        .select()
+        .eq('id', widget.centerId)
+        .single();
+
+    setState(() {
+      centerDetails = response;
+    });
   }
 
   @override
