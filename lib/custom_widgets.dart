@@ -1,8 +1,5 @@
 import 'package:book_my_slot/constants.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'login_screens/welcome_page.dart';
 
 class CCustomButton extends StatelessWidget {
   final Color buttonColor;
@@ -95,52 +92,64 @@ class CCustomSnackBar {
   }
 }
 
-class CCustomAppBar extends StatelessWidget {
-  final String titleText;
-
-  Future<void> logout() async {
-    final supabase = Supabase.instance.client;
-    await supabase.auth.signOut();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('auth_token');
-  }
-
-  const CCustomAppBar({
+class CCustomListBuilder extends StatelessWidget {
+  const CCustomListBuilder({
     super.key,
-    required this.titleText,
+    required this.list,
+    required this.icon,
+    required this.listType,
   });
+
+  final List<String> list;
+  final IconData icon;
+  final String listType;
 
   @override
   Widget build(BuildContext context) {
-    return AppBar(
-      title: Text(titleText),
-      centerTitle: true,
-      backgroundColor: kMainColor,
-      actions: [
-        IconButton(
-          icon: const Icon(
-            Icons.logout,
-            color: Colors.white,
-            weight: 10,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Notices',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
           ),
-          onPressed: () async {
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) {
-                return const Center(
-                  child: CircularProgressIndicator(),
-                );
-              },
-            );
-            await logout();
-            Navigator.pushAndRemoveUntil(
-              context,
-              MaterialPageRoute(builder: (context) => WelcomePage()),
-              (route) => false,
-            );
-          },
-          tooltip: "Sign Out",
+        ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: list.isNotEmpty
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: list.map((notice) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(icon, size: 20, color: kMainColor),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  notice,
+                                  style: const TextStyle(fontSize: 14),
+                                  softWrap: true,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    )
+                  : Text(
+                      'No $listType added yet.',
+                      style:
+                          TextStyle(fontSize: 14, fontStyle: FontStyle.italic),
+                    ),
+            ),
+          ],
         ),
       ],
     );

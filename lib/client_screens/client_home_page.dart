@@ -130,7 +130,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
     await prefs.clear();
   }
 
-  void _onItemTapped(int index) {
+  void _onNavItemTapped(int index) {
     if (_selectedIndex == index) return;
 
     Widget nextPage;
@@ -383,8 +383,10 @@ class _ClientHomePageState extends State<ClientHomePage> {
           ),
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: _selectedIndex,
-            selectedItemColor: kMainColor,
-            onTap: _onItemTapped,
+            selectedItemColor: Colors.white,
+            unselectedItemColor: Colors.grey[700],
+            onTap: _onNavItemTapped,
+            backgroundColor: kMainColor,
             items: const [
               BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
               BottomNavigationBarItem(
@@ -417,19 +419,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                               vertical: 24,
                               horizontal: 32,
                             ),
-                            decoration: BoxDecoration(
-                              color: kMainColor,
-                              borderRadius:
-                                  BorderRadius.all(Radius.circular(48.0)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.3),
-                                  blurRadius: 10,
-                                  spreadRadius: 7,
-                                  offset: Offset(1, 4),
-                                ),
-                              ],
-                            ),
+                            decoration: kCenterInfoBox,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -630,7 +620,8 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                                 child: Row(
                                                   children: [
                                                     const Icon(
-                                                        Icons.sports_esports,
+                                                        Icons
+                                                            .sports_esports_outlined,
                                                         size: 20,
                                                         color: kMainColor),
                                                     const SizedBox(width: 8),
