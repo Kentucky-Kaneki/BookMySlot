@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:book_my_slot/custom_widgets.dart';
 import 'package:book_my_slot/constants.dart';
-import 'package:book_my_slot/customer_screens/cust_home_page.dart';
+import 'package:book_my_slot/customer_screens/center_search_page.dart';
 import 'package:book_my_slot/client_screens/client_home_page.dart';
 
 class SignInPage extends StatefulWidget {
@@ -49,9 +49,8 @@ class _SignInPageState extends State<SignInPage> {
           Navigator.pushAndRemoveUntil(
             context,
             MaterialPageRoute(
-              builder: (context) => isCustomer
-                  ? const CustomerHomePage()
-                  : const ClientHomePage(),
+              builder: (context) =>
+                  isCustomer ? const SearchPage() : const ClientHomePage(),
             ),
             (route) => false,
           );

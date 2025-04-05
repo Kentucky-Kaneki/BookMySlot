@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:book_my_slot/client_screens/client_home_page.dart';
+import 'center_search_page.dart';
+import 'your_bookings.dart';
 import 'package:book_my_slot/constants.dart';
-import 'client_bookings_page.dart';
 
-class ClientProfilePage extends StatefulWidget {
-  const ClientProfilePage({super.key});
+class CustomerProfilePage extends StatefulWidget {
+  const CustomerProfilePage({super.key});
 
   @override
-  State<ClientProfilePage> createState() => _ClientProfilePageState();
+  State<CustomerProfilePage> createState() => _CustomerProfilePageState();
 }
 
-class _ClientProfilePageState extends State<ClientProfilePage> {
+class _CustomerProfilePageState extends State<CustomerProfilePage> {
   int _selectedIndex = 0;
 
   void _onItemTapped(int index) {
@@ -19,13 +19,13 @@ class _ClientProfilePageState extends State<ClientProfilePage> {
     Widget nextPage;
     switch (index) {
       case 0:
-        nextPage = const ClientHomePage();
+        nextPage = const SearchPage();
         break;
       case 1:
-        nextPage = const ClientBookingsPage();
+        nextPage = const YourBookings();
         break;
       case 2:
-        nextPage = const ClientProfilePage();
+        nextPage = const CustomerProfilePage();
         break;
       default:
         return;

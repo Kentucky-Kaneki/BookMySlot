@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:book_my_slot/custom_widgets.dart';
 import 'package:book_my_slot/constants.dart';
 import 'package:book_my_slot/login_screens/welcome_page.dart';
+import 'slot_booking_page.dart';
 
 class CustomerHomePage extends StatelessWidget {
   const CustomerHomePage({super.key});
@@ -136,7 +137,14 @@ class CustomerHomePage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  onPressed: () {},
+                  onPressed: () {
+                    // Navigator.push(
+                    //   context,
+                    //   MaterialPageRoute(
+                    //     builder: (context) => CustomerSlotSelectionPage(gamingCenter: gamingCenter, game: game),
+                    //   ),
+                    // );
+                  },
                   child: const Text('Book Now'),
                 ),
               ),
