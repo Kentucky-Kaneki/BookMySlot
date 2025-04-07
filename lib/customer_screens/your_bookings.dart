@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:book_my_slot/constants.dart';
-import 'package:book_my_slot/custom_widgets.dart';
 import 'package:book_my_slot/login_screens/welcome_page.dart';
 import 'center_search_page.dart';
 import 'cust_profile_page.dart';
@@ -51,6 +50,81 @@ class _YourBookingsState extends State<YourBookings> {
     setState(() {
       _selectedIndex = index;
     });
+  }
+
+  Widget buildBookingCard(Map<String, dynamic> booking) {
+    final centerName = booking['gaming_center']['name'];
+    final startTime = TimeOfDay.fromDateTime(
+        DateTime.parse('2024-01-01 ${booking['start_time']}'));
+    //  TODO set end times to start time + 1 hour
+    final endTime = TimeOfDay.fromDateTime(
+        DateTime.parse('2024-01-01 ${booking['end_time']}'));
+    final seatCount = booking['seat_count'];
+    final endDateTime = DateTime.parse(booking['end_time']);
+    // TODO remove comments
+    // final formattedDate =
+    //     "${_getWeekday(endDateTime.weekday)} ${endDateTime.day} ${_getMonth(endDateTime.month)}";
+
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 10),
+      padding: const EdgeInsets.all(16),
+      decoration: const BoxDecoration(
+        color: kMainColor,
+        borderRadius: BorderRadius.all(Radius.circular(48.0)),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x4D000000),
+            blurRadius: 10,
+            spreadRadius: 7,
+            offset: Offset(1, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(centerName,
+              style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white)),
+          const SizedBox(height: 4),
+          // TODO remove comments
+          // Text(formattedDate, style: const TextStyle(color: Colors.white)),
+          Text("${startTime.format(context)} - ${endTime.format(context)}",
+              style: const TextStyle(color: Colors.white)),
+          Text("$seatCount Seat${seatCount > 1 ? 's' : ''}",
+              style: const TextStyle(color: Colors.white)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text('Confirmed',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
+              const SizedBox(width: 12),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.white),
+                ),
+                onPressed: () {
+                  // Cancel booking logic
+                },
+                child: const Text('Cancel Booking',
+                    style: TextStyle(color: Colors.white)),
+              )
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -116,9 +190,28 @@ class _YourBookingsState extends State<YourBookings> {
                 child: IntrinsicHeight(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [],
+                    child: FutureBuilder(
+                      future: null,
+                      builder: (context, snapshot) {
+                        if (!snapshot.hasData) {
+                          return const Center(
+                              child: CircularProgressIndicator());
+                        }
+
+                        final bookings =
+                            snapshot.data as List<Map<String, dynamic>>;
+
+                        if (bookings.isEmpty) {
+                          return const Center(child: Text('No bookings found'));
+                        }
+
+                        return ListView.builder(
+                          itemCount: bookings.length,
+                          itemBuilder: (context, index) {
+                            return buildBookingCard(bookings[index]);
+                          },
+                        );
+                      },
                     ),
                   ),
                 ),
@@ -136,25 +229,6 @@ class _YourBookingsState extends State<YourBookings> {
             ),
           ),
       ],
-    );
-  }
-
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(width: 10),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 16),
-          ),
-        ],
-      ),
     );
   }
 }

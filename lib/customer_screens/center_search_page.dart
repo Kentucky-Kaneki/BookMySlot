@@ -130,21 +130,6 @@ class _CenterSearchPageState extends State<CenterSearchPage> {
           padding: const EdgeInsets.all(16.0),
           child: Column(
             children: [
-              TextField(
-                // TODO add filter functionality
-                onChanged: null,
-                decoration: InputDecoration(
-                  hintText: 'Search gaming center...',
-                  prefixIcon: const Icon(Icons.search),
-                  suffixIcon: IconButton(
-                    icon: Icon(Icons.filter_alt_outlined),
-                    onPressed: () {},
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.0),
-                  ),
-                ),
-              ),
               const SizedBox(height: 16),
               Expanded(
                 child: ListView.builder(

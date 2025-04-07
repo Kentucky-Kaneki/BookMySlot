@@ -12,6 +12,11 @@ const TextStyle kAppBarTextStyle2 = TextStyle(
   color: Colors.white,
 );
 
+const TextStyle kHeaderStyle = TextStyle(
+  fontWeight: FontWeight.w900,
+  fontSize: 20,
+);
+
 const BoxDecoration kCenterInfoBox = BoxDecoration(
   color: kMainColor,
   borderRadius: BorderRadius.all(Radius.circular(48.0)),

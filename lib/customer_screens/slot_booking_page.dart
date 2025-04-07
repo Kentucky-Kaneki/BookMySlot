@@ -2,110 +2,12 @@ import 'package:book_my_slot/custom_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:intl/intl.dart';
 import 'package:book_my_slot/constants.dart';
 import 'package:book_my_slot/login_screens/welcome_page.dart';
 import 'package:book_my_slot/customer_screens/center_search_page.dart';
 import 'package:book_my_slot/customer_screens/cust_profile_page.dart';
 import 'package:book_my_slot/customer_screens/your_bookings.dart';
-
-class DateTimePage extends StatefulWidget {
-  const DateTimePage({super.key});
-
-  @override
-  _DateTimePageState createState() => _DateTimePageState();
-}
-
-class _DateTimePageState extends State<DateTimePage> {
-  int selectedSeats = 1;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Select date & time'),
-        backgroundColor: Colors.indigo,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(6, (index) {
-                return Column(
-                  children: [
-                    Text('MON\n${17 + index}',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                    const Text('FEB'),
-                  ],
-                );
-              }),
-            ),
-            const SizedBox(height: 20),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                '10-11am',
-                '11-12pm',
-                '12-1pm',
-                '1-2pm',
-                '2-3pm',
-                '3-4pm',
-                '4-5pm',
-                '5-6pm',
-                '6-7pm'
-              ]
-                  .map((time) => ChoiceChip(
-                        label: Text(time),
-                        selected: false,
-                        onSelected: (bool selected) {},
-                      ))
-                  .toList(),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      if (selectedSeats > 1) selectedSeats--;
-                    });
-                  },
-                  icon: const Icon(Icons.remove),
-                ),
-                Text('$selectedSeats'),
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      selectedSeats++;
-                    });
-                  },
-                  icon: const Icon(Icons.add),
-                ),
-              ],
-            ),
-            const SizedBox(height: 40),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.indigo,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(300, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              onPressed: () {},
-              child: const Text('Book Slot'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class SlotSelectionPage extends StatefulWidget {
   final dynamic centerId;
@@ -117,10 +19,14 @@ class SlotSelectionPage extends StatefulWidget {
 }
 
 class _SlotSelectionPageState extends State<SlotSelectionPage> {
-  List<String> availableSlots = [];
-  dynamic selectedSlot;
+  List<Map<String, dynamic>> slots = [];
+  dynamic selectedSlotId;
   bool _isLoading = false;
   int _selectedIndex = 0;
+  int _seatCount = 1;
+  DateTime selectedDate = DateTime.now();
+  late List<Map<String, String>> dateStrip;
+  final today = DateTime.now();
 
   Future<void> logout() async {
     final supabase = Supabase.instance.client;
@@ -157,31 +63,149 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
     });
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchAvailableSlots();
-  }
+  Future<void> generateSlots() async {
+    final supabase = Supabase.instance.client;
+    setState(() => _isLoading = true);
 
-  Future<void> _fetchAvailableSlots() async {
-    final response = await Supabase.instance.client
-        .from('slots')
-        .select('id')
+    // Get opening and closing times
+    final response = await supabase
+        .from('game_center')
+        .select('opening_time, closing_time')
         .eq('id', widget.centerId)
-        .eq('isBooked', false);
+        .single();
+
+    final openingTime =
+        DateTime.parse('2000-01-01 ${response['opening_time']}');
+    final closingTime =
+        DateTime.parse('2000-01-01 ${response['closing_time']}');
+
+    // Combine with selectedDate to create full DateTime objects
+    final startOfDay = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      openingTime.hour,
+      openingTime.minute,
+    );
+
+    final endOfDay = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      closingTime.hour,
+      closingTime.minute,
+    );
+
+    // Fetch booked slots for this center
+    final bookedResponse = await supabase
+        .from('bookings')
+        .select('start_time')
+        .eq('center_id', widget.centerId);
+
+    final List<Map<String, dynamic>> bookedSlots =
+        List<Map<String, dynamic>>.from(bookedResponse).where((slot) {
+      final start = DateTime.parse(slot['start_time']);
+      return start.year == selectedDate.year &&
+          start.month == selectedDate.month &&
+          start.day == selectedDate.day;
+    }).toList();
+
+    final List<Map<String, dynamic>> generatedSlots = [];
+
+    // Generate 1-hour slots
+    DateTime current = startOfDay;
+    while (current.isBefore(endOfDay)) {
+      final next = current.add(const Duration(hours: 1));
+
+      final isBooked = bookedSlots.any((booked) {
+        final bookedStart = DateTime.parse(booked['start_time']);
+        return bookedStart.isAtSameMomentAs(current);
+      });
+
+      generatedSlots.add({
+        'label':
+            '${DateFormat.jm().format(current)} - ${DateFormat.jm().format(next)}',
+        'start': current,
+        'end': next,
+        'isBooked': isBooked,
+      });
+
+      current = next;
+    }
 
     setState(() {
-      availableSlots =
-          response.map<String>((slot) => slot['id'].toString()).toList();
+      slots = generatedSlots;
+      _isLoading = false;
     });
   }
 
-  Future<void> _bookSlot() async {
-    if (selectedSlot == null) return;
+  void generateDates() {
+    setState(() {
+      _isLoading = true;
+    });
+    final today = DateTime.now();
+    dateStrip = List.generate(7, (index) {
+      final date = today.add(Duration(days: index));
+      return {
+        'day': DateFormat.E().format(date), // e.g. Mon, Tue
+        'date': DateFormat.d().format(date), // e.g. 17
+        'month': DateFormat.MMM().format(date), // e.g. Apr
+      };
+    });
+    setState(() {
+      _isLoading = false;
+    });
+  }
 
-    await Supabase.instance.client
-        .from('slots')
-        .update({'isBooked': true}).match({'id': selectedSlot});
+  Future<void> confirmBooking() async {
+    final supabase = Supabase.instance.client;
+
+    if (selectedSlotId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select a slot')),
+      );
+      return;
+    }
+
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) {
+        throw Exception('User not logged in');
+      }
+
+      final start = selectedSlotId['start'] as DateTime;
+      final end = selectedSlotId['end'] as DateTime;
+
+      await supabase.from('bookings').insert({
+        'start_time': start.toIso8601String(),
+        'end_time': end.toIso8601String(),
+        'seats_count': _seatCount,
+        'cust_id': user.id,
+        'center_id': widget.centerId,
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Booking confirmed!')),
+      );
+
+      // Refresh slots to reflect new booking
+      generateSlots();
+      setState(() {
+        selectedSlotId = null;
+        _seatCount = 1;
+      });
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Booking failed: ${e.toString()}')),
+      );
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    generateDates();
+    generateSlots();
   }
 
   @override
@@ -248,38 +272,165 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Text(
-                          'Select a Slot:',
-                          style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 10),
-                        Expanded(
+                        // Day selection
+                        SizedBox(
+                          height: 100,
                           child: ListView.builder(
-                            itemCount: availableSlots.length,
+                            scrollDirection: Axis.horizontal,
+                            itemCount: dateStrip.length,
                             itemBuilder: (context, index) {
-                              final slot = availableSlots[index];
-                              return RadioListTile<String>(
-                                title: Text(slot),
-                                value: slot,
-                                groupValue: selectedSlot,
-                                onChanged: (value) {
+                              final item = dateStrip[index];
+                              final isSelected =
+                                  selectedDate.day.toString() == item['date'] &&
+                                      DateFormat.E().format(selectedDate) ==
+                                          item['day'];
+
+                              return InkWell(
+                                onTap: () {
                                   setState(() {
-                                    selectedSlot = value;
+                                    selectedDate = DateTime.now()
+                                        .add(Duration(days: index));
+                                    generateSlots();
                                   });
                                 },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                    horizontal: 12,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        isSelected ? kMainColor : Colors.white,
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        item['day']!.toUpperCase(),
+                                        style: TextStyle(
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.black,
+                                          fontWeight: FontWeight.w200,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${item['date']}',
+                                        style: TextStyle(
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.black,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        item['month']!.toUpperCase(),
+                                        style: TextStyle(
+                                          color: isSelected
+                                              ? Colors.white
+                                              : Colors.black,
+                                          fontWeight: FontWeight.w200,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
                               );
                             },
                           ),
                         ),
+
+                        const SizedBox(height: 32),
+                        // Slots selection
+                        Center(
+                          child: Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: slots.map((slot) {
+                              final isSelected = slot == selectedSlotId;
+                              final isBooked = slot['isBooked'] == true;
+
+                              return ChoiceChip(
+                                label: Text(
+                                  slot['label'],
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                labelStyle: TextStyle(
+                                  color: isBooked
+                                      ? Colors.grey.shade600
+                                      : (isSelected
+                                          ? Colors.white
+                                          : Colors.black),
+                                ),
+                                selected: isSelected,
+                                onSelected: isBooked
+                                    ? null // disables interaction
+                                    : (_) {
+                                        setState(() {
+                                          selectedSlotId = slot;
+                                        });
+                                      },
+                                selectedColor: isBooked
+                                    ? Colors.grey.shade300
+                                    : kMainColor,
+                                backgroundColor:
+                                    isBooked ? Colors.grey.shade300 : null,
+                                showCheckmark: false,
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        // Number of seats
+                        Row(
+                          children: [
+                            Text(
+                              'Select no. of seats',
+                              style: kHeaderStyle,
+                            ),
+                            SizedBox(width: 100),
+                            SeatCountIcon(
+                              icon: Icons.remove,
+                              onPressed: () {
+                                if (_seatCount > 1) {
+                                  setState(() {
+                                    _seatCount--;
+                                  });
+                                }
+                              },
+                            ),
+                            SizedBox(width: 10),
+                            Text(
+                              '$_seatCount',
+                              style: kHeaderStyle,
+                            ),
+                            SizedBox(width: 10),
+                            SeatCountIcon(
+                              icon: Icons.add,
+                              onPressed: () {
+                                //  TODO add seat count check functionality
+                                if (true) {
+                                  setState(() {
+                                    _seatCount++;
+                                  });
+                                }
+                              },
+                            ),
+                          ],
+                        ),
                         Spacer(),
                         CCustomButton(
-                            buttonColor: kMainColor,
-                            textColor: Colors.white,
-                            text: 'Confirm Booking',
-                            onPressed: () {}),
+                          buttonColor: kMainColor,
+                          textColor: Colors.white,
+                          text: 'Confirm Booking',
+                          onPressed: confirmBooking,
+                        ),
                       ],
                     ),
                   ),

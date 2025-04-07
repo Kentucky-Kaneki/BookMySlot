@@ -576,10 +576,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                 children: [
                                   const Text(
                                     'Games Available',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 16,
-                                    ),
+                                    style: kHeaderStyle,
                                   ),
                                   _isEditingGameList
                                       ? IconButton(
@@ -669,8 +666,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                             children: [
                               const Text(
                                 'Notices',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold, fontSize: 16),
+                                style: kHeaderStyle,
                               ),
 
                               // Notices List

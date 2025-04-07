@@ -17,20 +17,22 @@ class CCustomButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 50,
-      width: MediaQuery.of(context).size.width * 0.85,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: buttonColor,
-          foregroundColor: textColor,
-          minimumSize: const Size(300, 50),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(30),
+    return Center(
+      child: SizedBox(
+        height: 50,
+        width: MediaQuery.of(context).size.width * 0.85,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: buttonColor,
+            foregroundColor: textColor,
+            minimumSize: const Size(300, 50),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
           ),
+          onPressed: onPressed,
+          child: Text(text),
         ),
-        onPressed: onPressed,
-        child: Text(text),
       ),
     );
   }
@@ -152,6 +154,36 @@ class CCustomListBuilder extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class SeatCountIcon extends StatelessWidget {
+  final IconData icon;
+  final void Function() onPressed;
+
+  const SeatCountIcon({
+    super.key,
+    required this.icon,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onPressed,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          color: kMainColor,
+        ),
+        child: Icon(
+          icon,
+          color: Colors.white,
+          size: 20,
+        ),
+      ),
     );
   }
 }
