@@ -280,7 +280,7 @@ class _CenterDetailsPageState extends State<CenterDetailsPage> {
                         // Games List Section
                         CCustomListBuilder(
                             list: _games,
-                            icon: Icons.sports_esports_outlined,
+                            icon: Icons.sports_esports_rounded,
                             listType: 'games'),
                         SizedBox(height: 24),
 

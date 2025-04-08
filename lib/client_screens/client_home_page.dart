@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:book_my_slot/custom_widgets.dart';
@@ -132,14 +133,10 @@ class _ClientHomePageState extends State<ClientHomePage> {
 
       if (response == null) {
         // No row found, insert a new one
-        final insertResponse = await supabase.from('game_center').insert({
+        await supabase.from('game_center').insert({
           'client_id': userId,
           field: value,
         });
-
-        if (insertResponse.error != null) {
-          throw insertResponse.error!;
-        }
       } else {
         // Row exists, update it
         final centerId = response['id'];
@@ -168,42 +165,54 @@ class _ClientHomePageState extends State<ClientHomePage> {
   }
 
   Future<void> _pickTime(BuildContext context) async {
-    TimeOfDay initialOpeningTime = _openingTimeController.text.isNotEmpty
+    final DateTime now = DateTime.now();
+
+    DateTime initialOpeningTime = _openingTimeController.text.isNotEmpty
         ? parseTime(_openingTimeController.text)
-        : TimeOfDay.now();
+        : now;
 
     // Opening time picker
-    TimeOfDay? openingTime = await showTimePicker(
+    TimeOfDay? opening = await showTimePicker(
       context: context,
       helpText: 'Choose Opening Time',
-      initialTime: initialOpeningTime,
+      initialTime: TimeOfDay.fromDateTime(initialOpeningTime),
     );
-    if (openingTime == null) return;
+    if (opening == null) return;
+
+    DateTime openingTime =
+        DateTime(now.year, now.month, now.day, opening.hour, opening.minute);
 
     // Closing time picker
-    TimeOfDay? closingTime = await showTimePicker(
+    TimeOfDay? closing = await showTimePicker(
       context: context,
       helpText: 'Choose Closing Time',
-      initialTime: openingTime,
+      initialTime: opening,
     );
-    if (closingTime == null) return;
+    if (closing == null) return;
 
-    // Error SnackBar if invalid closing time
-    if (!isClosingTimeValid(openingTime, closingTime)) {
+    DateTime closingTime =
+        DateTime(now.year, now.month, now.day, closing.hour, closing.minute);
+
+    // Validate
+    if (!closingTime.isAfter(openingTime)) {
       CCustomSnackBar.show(
           context, 'Closing time must be after opening time!', Colors.orange);
       return;
     }
 
-    // Formatting and Saving
-    String openingTimeStr = formatTime(openingTime);
-    String closingTimeStr = formatTime(closingTime);
+    // Format time strings for display and DB storage
+    String openingTimeStr = DateFormat.jm().format(openingTime);
+    String closingTimeStr = DateFormat.jm().format(closingTime);
+    String dbOpening = DateFormat('HH:mm:ss').format(openingTime);
+    String dbClosing = DateFormat('HH:mm:ss').format(closingTime);
+
     setState(() {
       _openingTimeController.text = openingTimeStr;
       _closingTimeController.text = closingTimeStr;
     });
-    await _saveCenterInfoChanges('opening_time', openingTimeStr);
-    await _saveCenterInfoChanges('closing_time', closingTimeStr);
+
+    await _saveCenterInfoChanges('opening_time', dbOpening);
+    await _saveCenterInfoChanges('closing_time', dbClosing);
   }
 
   Future<void> _saveGamesList() async {
@@ -524,8 +533,57 @@ class _ClientHomePageState extends State<ClientHomePage> {
                           const SizedBox(height: 32),
 
                           // Number of seats
-
-                          const SizedBox(height: 32),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Total Seats:',
+                                  style: kHeaderStyle,
+                                ),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    CCustomIconButton(
+                                      icon: Icons.remove,
+                                      onPressed: () {
+                                        if (_seatCount > 1) {
+                                          setState(() {
+                                            _seatCount--;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text(
+                                      '$_seatCount',
+                                      style: kHeaderStyle,
+                                    ),
+                                    SizedBox(width: 10),
+                                    CCustomIconButton(
+                                      icon: Icons.add,
+                                      onPressed: () {
+                                        if (true) {
+                                          setState(() {
+                                            _seatCount++;
+                                          });
+                                        }
+                                      },
+                                    ),
+                                  ],
+                                ),
+                                CCustomIconButton(
+                                    icon: Icons.check,
+                                    onPressed: () {
+                                      _saveCenterInfoChanges(
+                                          'seat_count', _seatCount);
+                                    })
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 24),
                           // Games List Section
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -578,7 +636,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                                   children: [
                                                     const Icon(
                                                         Icons
-                                                            .sports_esports_outlined,
+                                                            .sports_esports_rounded,
                                                         size: 20,
                                                         color: kMainColor),
                                                     const SizedBox(width: 8),
@@ -610,7 +668,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                       controller: _gameListController,
                                       decoration: const InputDecoration(
                                         hintText:
-                                            'Enter game names separated by commas',
+                                            'Enter games separated by commas',
                                         border: OutlineInputBorder(),
                                       ),
                                     ),

@@ -158,11 +158,11 @@ class CCustomListBuilder extends StatelessWidget {
   }
 }
 
-class SeatCountIcon extends StatelessWidget {
+class CCustomIconButton extends StatelessWidget {
   final IconData icon;
   final void Function() onPressed;
 
-  const SeatCountIcon({
+  const CCustomIconButton({
     super.key,
     required this.icon,
     required this.onPressed,

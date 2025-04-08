@@ -146,9 +146,9 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
     dateStrip = List.generate(7, (index) {
       final date = today.add(Duration(days: index));
       return {
-        'day': DateFormat.E().format(date), // e.g. Mon, Tue
-        'date': DateFormat.d().format(date), // e.g. 17
-        'month': DateFormat.MMM().format(date), // e.g. Apr
+        'day': DateFormat.E().format(date),
+        'date': DateFormat.d().format(date),
+        'month': DateFormat.MMM().format(date),
       };
     });
     setState(() {
@@ -275,75 +275,78 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
                       children: [
                         // Day selection
                         SizedBox(
-                          height: 100,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: dateStrip.length,
-                            itemBuilder: (context, index) {
-                              final item = dateStrip[index];
-                              final isSelected =
-                                  selectedDate.day.toString() == item['date'] &&
-                                      DateFormat.E().format(selectedDate) ==
-                                          item['day'];
+                          height: 88,
+                          child: Padding(
+                            padding:
+                                const EdgeInsets.symmetric(horizontal: 6.0),
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: dateStrip.length,
+                              itemBuilder: (context, index) {
+                                final item = dateStrip[index];
+                                final isSelected =
+                                    selectedDate.day.toString() ==
+                                            item['date'] &&
+                                        DateFormat.E().format(selectedDate) ==
+                                            item['day'];
 
-                              return InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    selectedDate = DateTime.now()
-                                        .add(Duration(days: index));
-                                    generateSlots();
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 10,
-                                    horizontal: 12,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        isSelected ? kMainColor : Colors.white,
-                                  ),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(
-                                        item['day']!.toUpperCase(),
-                                        style: TextStyle(
-                                          color: isSelected
-                                              ? Colors.white
-                                              : Colors.black,
-                                          fontWeight: FontWeight.w200,
+                                return InkWell(
+                                  onTap: () {
+                                    setState(() {
+                                      selectedDate = DateTime.now()
+                                          .add(Duration(days: index));
+                                      generateSlots();
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? kMainColor
+                                          : Colors.white,
+                                    ),
+                                    child: Column(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Text(
+                                          item['day']!.toUpperCase(),
+                                          style: TextStyle(
+                                            color: isSelected
+                                                ? Colors.white
+                                                : Colors.black,
+                                            fontWeight: FontWeight.w200,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${item['date']}',
-                                        style: TextStyle(
-                                          color: isSelected
-                                              ? Colors.white
-                                              : Colors.black,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 20,
+                                        Text(
+                                          '${item['date']}',
+                                          style: TextStyle(
+                                            color: isSelected
+                                                ? Colors.white
+                                                : Colors.black,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 20,
+                                          ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        item['month']!.toUpperCase(),
-                                        style: TextStyle(
-                                          color: isSelected
-                                              ? Colors.white
-                                              : Colors.black,
-                                          fontWeight: FontWeight.w200,
+                                        Text(
+                                          item['month']!.toUpperCase(),
+                                          style: TextStyle(
+                                            color: isSelected
+                                                ? Colors.white
+                                                : Colors.black,
+                                            fontWeight: FontWeight.w200,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              );
-                            },
+                                );
+                              },
+                            ),
                           ),
                         ),
-
                         const SizedBox(height: 32),
                         // Slots selection
                         Center(
@@ -394,7 +397,7 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
                               style: kHeaderStyle,
                             ),
                             SizedBox(width: 100),
-                            SeatCountIcon(
+                            CCustomIconButton(
                               icon: Icons.remove,
                               onPressed: () {
                                 if (_seatCount > 1) {
@@ -410,7 +413,7 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
                               style: kHeaderStyle,
                             ),
                             SizedBox(width: 10),
-                            SeatCountIcon(
+                            CCustomIconButton(
                               icon: Icons.add,
                               onPressed: () {
                                 //  TODO add seat count check functionality
