@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:book_my_slot/custom_widgets.dart';
 import 'package:book_my_slot/constants.dart';
+import 'package:book_my_slot/helperFunctions/timeFormatting.dart';
 import 'package:book_my_slot/login_screens/welcome_page.dart';
 import 'client_bookings_page.dart';
 import 'client_profile_page.dart';
@@ -33,6 +34,42 @@ class _ClientHomePageState extends State<ClientHomePage> {
   String _userName = 'User';
   List<String> _games = [];
   List<String> _notices = [];
+  int _seatCount = 1;
+
+  Future<void> logout() async {
+    final supabase = Supabase.instance.client;
+    await supabase.auth.signOut();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+  }
+
+  void _onNavItemTapped(int index) {
+    if (_selectedIndex == index) return;
+
+    Widget nextPage;
+    switch (index) {
+      case 0:
+        nextPage = const ClientHomePage();
+        break;
+      case 1:
+        nextPage = const ClientBookingsPage();
+        break;
+      case 2:
+        nextPage = const ClientProfilePage();
+        break;
+      default:
+        return;
+    }
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (context) => nextPage),
+    );
+
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
 
   Future<void> _fetchData() async {
     setState(() {
@@ -62,8 +99,15 @@ class _ClientHomePageState extends State<ClientHomePage> {
       _locationController.text = centerResponse?['location'] ?? '';
       _games = List<String>.from(centerResponse?['games'] ?? []);
       _notices = List<String>.from(centerResponse?['notices'] ?? []);
+      _seatCount = centerResponse?['seat_count'] ?? 1;
       _isLoading = false;
     });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchData();
   }
 
   Future<void> _saveCenterInfoChanges(String field, dynamic value) async {
@@ -123,44 +167,9 @@ class _ClientHomePageState extends State<ClientHomePage> {
     }
   }
 
-  Future<void> logout() async {
-    final supabase = Supabase.instance.client;
-    await supabase.auth.signOut();
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-  }
-
-  void _onNavItemTapped(int index) {
-    if (_selectedIndex == index) return;
-
-    Widget nextPage;
-    switch (index) {
-      case 0:
-        nextPage = const ClientHomePage();
-        break;
-      case 1:
-        nextPage = const ClientBookingsPage();
-        break;
-      case 2:
-        nextPage = const ClientProfilePage();
-        break;
-      default:
-        return;
-    }
-
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => nextPage),
-    );
-
-    setState(() {
-      _selectedIndex = index;
-    });
-  }
-
   Future<void> _pickTime(BuildContext context) async {
     TimeOfDay initialOpeningTime = _openingTimeController.text.isNotEmpty
-        ? _parseTime(_openingTimeController.text)
+        ? parseTime(_openingTimeController.text)
         : TimeOfDay.now();
 
     // Opening time picker
@@ -180,15 +189,15 @@ class _ClientHomePageState extends State<ClientHomePage> {
     if (closingTime == null) return;
 
     // Error SnackBar if invalid closing time
-    if (!_isClosingTimeValid(openingTime, closingTime)) {
+    if (!isClosingTimeValid(openingTime, closingTime)) {
       CCustomSnackBar.show(
           context, 'Closing time must be after opening time!', Colors.orange);
       return;
     }
 
     // Formatting and Saving
-    String openingTimeStr = _formatTime(openingTime);
-    String closingTimeStr = _formatTime(closingTime);
+    String openingTimeStr = formatTime(openingTime);
+    String closingTimeStr = formatTime(closingTime);
     setState(() {
       _openingTimeController.text = openingTimeStr;
       _closingTimeController.text = closingTimeStr;
@@ -197,52 +206,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
     await _saveCenterInfoChanges('closing_time', closingTimeStr);
   }
 
-  TimeOfDay _parseTime(String timeStr) {
-    final format =
-        RegExp(r'(\d+):(\d+) (AM|PM)'); // Extracts hour, minute, and AM/PM
-    final match = format.firstMatch(timeStr);
-
-    if (match == null) return TimeOfDay.now(); // Default fallback
-
-    int hour = int.parse(match.group(1)!);
-    int minute = int.parse(match.group(2)!);
-    String period = match.group(3)!;
-
-    if (period == "PM" && hour != 12) hour += 12;
-    if (period == "AM" && hour == 12) hour = 0;
-
-    return TimeOfDay(hour: hour, minute: minute);
-  }
-
-  String _formatTime(TimeOfDay time) {
-    final int hour =
-        time.hourOfPeriod == 0 ? 12 : time.hourOfPeriod; // Convert 0 to 12
-    final String period = time.period == DayPeriod.am ? 'AM' : 'PM';
-    final String minute =
-        time.minute.toString().padLeft(2, '0'); // Ensure 2 digits
-
-    return '$hour:$minute $period';
-  }
-
-  String _formatStoredTime(String timeStr) {
-    try {
-      List<String> parts = timeStr.split(':');
-      int hour = int.parse(parts[0]);
-      int minute = int.parse(parts[1]);
-
-      TimeOfDay time = TimeOfDay(hour: hour, minute: minute);
-      return _formatTime(time); // Use your existing _formatTime function
-    } catch (e) {
-      return timeStr; // Return original in case of an error
-    }
-  }
-
-  bool _isClosingTimeValid(TimeOfDay opening, TimeOfDay closing) {
-    return (closing.hour > opening.hour) ||
-        (closing.hour == opening.hour && closing.minute > opening.minute);
-  }
-
-  Future<void> _saveGames() async {
+  Future<void> _saveGamesList() async {
     setState(() {
       _isLoading = true;
     });
@@ -274,29 +238,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
     }
   }
 
-  void _saveEditedNotice(int index) {
-    setState(() {
-      _notices[index] = _noticeListController.text.trim();
-      if (_notices[index].isEmpty) {
-        _notices.removeAt(index);
-      }
-      _editingIndex = null;
-    });
-    _updateNoticesInDatabase();
-  }
-
-  void _saveNewNotice() {
-    setState(() {
-      String newNotice = _noticeListController.text.trim();
-      if (newNotice.isNotEmpty) {
-        _notices.add(newNotice);
-        _isAddingNotice = false;
-      }
-    });
-    _updateNoticesInDatabase();
-  }
-
-  Future<void> _updateNoticesInDatabase() async {
+  Future<void> _saveNotices() async {
     setState(() {
       _isLoading = true;
     });
@@ -322,10 +264,26 @@ class _ClientHomePageState extends State<ClientHomePage> {
     }
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _fetchData();
+  void _updateEditedNoticeToList(int index) {
+    setState(() {
+      _notices[index] = _noticeListController.text.trim();
+      if (_notices[index].isEmpty) {
+        _notices.removeAt(index);
+      }
+      _editingIndex = null;
+    });
+    _saveNotices();
+  }
+
+  void _updateNewNoticeToList() {
+    setState(() {
+      String newNotice = _noticeListController.text.trim();
+      if (newNotice.isNotEmpty) {
+        _notices.add(newNotice);
+        _isAddingNotice = false;
+      }
+    });
+    _saveNotices();
   }
 
   @override
@@ -487,7 +445,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                             color: Colors.white),
                                         SizedBox(width: 8),
                                         Text(
-                                          'Timings: ${_formatStoredTime(_openingTimeController.text)} - ${_formatStoredTime(_closingTimeController.text)}',
+                                          'Timings: ${formatStoredTime(_openingTimeController.text)} - ${formatStoredTime(_closingTimeController.text)}',
                                           style: TextStyle(
                                               color: Colors.white,
                                               fontSize: 16),
@@ -520,8 +478,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                               style: TextStyle(
                                                   color: Colors.white),
                                               controller: _locationController,
-                                              maxLines:
-                                                  null, // Allows dynamic expansion
+                                              maxLines: null,
                                               decoration: const InputDecoration(
                                                 border: UnderlineInputBorder(),
                                                 enabledBorder:
@@ -566,6 +523,9 @@ class _ClientHomePageState extends State<ClientHomePage> {
                           ),
                           const SizedBox(height: 32),
 
+                          // Number of seats
+
+                          const SizedBox(height: 32),
                           // Games List Section
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -583,7 +543,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                           icon: const Icon(Icons.check,
                                               color: Colors.green, size: 28),
                                           onPressed: () {
-                                            _saveGames();
+                                            _saveGamesList();
                                           },
                                         )
                                       : IconButton(
@@ -714,7 +674,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                             onPressed: () {
                                               setState(() {
                                                 if (_editingIndex == i) {
-                                                  _saveEditedNotice(i);
+                                                  _updateEditedNoticeToList(i);
                                                 } else {
                                                   _noticeListController.text =
                                                       _notices[i];
@@ -747,7 +707,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                                           icon: const Icon(Icons.check,
                                               color: Colors.green, size: 24),
                                           onPressed: () {
-                                            _saveNewNotice();
+                                            _updateNewNoticeToList();
                                           },
                                         ),
                                       ],

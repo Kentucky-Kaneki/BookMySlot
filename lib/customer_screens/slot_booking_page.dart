@@ -19,14 +19,13 @@ class SlotSelectionPage extends StatefulWidget {
 }
 
 class _SlotSelectionPageState extends State<SlotSelectionPage> {
-  List<Map<String, dynamic>> slots = [];
-  dynamic selectedSlotId;
   bool _isLoading = false;
   int _selectedIndex = 0;
   int _seatCount = 1;
   DateTime selectedDate = DateTime.now();
   late List<Map<String, String>> dateStrip;
-  final today = DateTime.now();
+  List<Map<String, dynamic>> slots = [];
+  dynamic selectedSlotId;
 
   Future<void> logout() async {
     final supabase = Supabase.instance.client;
@@ -139,7 +138,7 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
     });
   }
 
-  void generateDates() {
+  void generateDatesStrip() {
     setState(() {
       _isLoading = true;
     });
@@ -204,7 +203,7 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
   @override
   void initState() {
     super.initState();
-    generateDates();
+    generateDatesStrip();
     generateSlots();
   }
 
