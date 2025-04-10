@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:book_my_slot/customer_screens/center_search_page.dart';
-import 'package:book_my_slot/customer_screens/cust_profile_page.dart';
-import 'package:book_my_slot/customer_screens/your_bookings.dart';
 import 'package:book_my_slot/custom_widgets.dart';
 import 'package:book_my_slot/constants.dart';
 import 'package:book_my_slot/login_screens/welcome_page.dart';
+import 'center_search_page.dart';
+import 'cust_profile_page.dart';
+import 'your_bookings.dart';
 import 'slot_booking_page.dart';
 
 class CenterDetailsPage extends StatefulWidget {

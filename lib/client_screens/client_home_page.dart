@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:book_my_slot/custom_widgets.dart';
 import 'package:book_my_slot/constants.dart';
-import 'package:book_my_slot/helperFunctions/timeFormatting.dart';
 import 'package:book_my_slot/login_screens/welcome_page.dart';
 import 'client_bookings_page.dart';
 import 'client_profile_page.dart';
@@ -213,6 +212,27 @@ class _ClientHomePageState extends State<ClientHomePage> {
 
     await _saveCenterInfoChanges('opening_time', dbOpening);
     await _saveCenterInfoChanges('closing_time', dbClosing);
+  }
+
+  DateTime parseTime(String timeStr) {
+    try {
+      final format = DateFormat.jm(); // e.g. 2:30 PM
+      return format.parse(timeStr);
+    } catch (e) {
+      return DateTime.now(); // fallback
+    }
+  }
+
+  String formatStoredTime(String timeStr) {
+    try {
+      final timeParts = timeStr.split(':');
+      final now = DateTime.now();
+      final time = DateTime(now.year, now.month, now.day,
+          int.parse(timeParts[0]), int.parse(timeParts[1]));
+      return DateFormat.jm().format(time);
+    } catch (e) {
+      return timeStr;
+    }
   }
 
   Future<void> _saveGamesList() async {
@@ -584,6 +604,7 @@ class _ClientHomePageState extends State<ClientHomePage> {
                             ),
                           ),
                           const SizedBox(height: 24),
+
                           // Games List Section
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,

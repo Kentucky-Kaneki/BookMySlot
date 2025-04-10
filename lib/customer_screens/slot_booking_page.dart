@@ -19,6 +19,10 @@ class SlotSelectionPage extends StatefulWidget {
 }
 
 class _SlotSelectionPageState extends State<SlotSelectionPage> {
+  late DateTime startOfDay;
+  late DateTime endOfDay;
+  int totalSeats = 0;
+
   bool _isLoading = false;
   int _selectedIndex = 0;
   int _seatCount = 1;
@@ -62,86 +66,16 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
     });
   }
 
-  Future<void> generateSlots() async {
-    final supabase = Supabase.instance.client;
-    setState(() => _isLoading = true);
-
-    // Get opening and closing times
-    final response = await supabase
-        .from('game_center')
-        .select('opening_time, closing_time')
-        .eq('id', widget.centerId)
-        .single();
-
-    final openingTime =
-        DateTime.parse('2000-01-01 ${response['opening_time']}');
-    final closingTime =
-        DateTime.parse('2000-01-01 ${response['closing_time']}');
-
-    // Combine with selectedDate to create full DateTime objects
-    final startOfDay = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-      openingTime.hour,
-      openingTime.minute,
-    );
-
-    final endOfDay = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-      closingTime.hour,
-      closingTime.minute,
-    );
-
-    // Fetch booked slots for this center
-    final bookedResponse = await supabase
-        .from('bookings')
-        .select('start_time')
-        .eq('center_id', widget.centerId);
-
-    final List<Map<String, dynamic>> bookedSlots =
-        List<Map<String, dynamic>>.from(bookedResponse).where((slot) {
-      final start = DateTime.parse(slot['start_time']);
-      return start.year == selectedDate.year &&
-          start.month == selectedDate.month &&
-          start.day == selectedDate.day;
-    }).toList();
-
-    final List<Map<String, dynamic>> generatedSlots = [];
-
-    // Generate 1-hour slots
-    DateTime current = startOfDay;
-    while (current.isBefore(endOfDay)) {
-      final next = current.add(const Duration(hours: 1));
-
-      final isBooked = bookedSlots.any((booked) {
-        final bookedStart = DateTime.parse(booked['start_time']);
-        return bookedStart.isAtSameMomentAs(current);
-      });
-
-      generatedSlots.add({
-        'label':
-            '${DateFormat.jm().format(current)} - ${DateFormat.jm().format(next)}',
-        'start': current,
-        'end': next,
-        'isBooked': isBooked,
-      });
-
-      current = next;
-    }
-
-    setState(() {
-      slots = generatedSlots;
-      _isLoading = false;
-    });
+  @override
+  void initState() {
+    super.initState();
+    _generateDatesStrip();
+    _generateSlots();
   }
 
-  void generateDatesStrip() {
-    setState(() {
-      _isLoading = true;
-    });
+  void _generateDatesStrip() {
+    setState(() => _isLoading = true);
+
     final today = DateTime.now();
     dateStrip = List.generate(7, (index) {
       final date = today.add(Duration(days: index));
@@ -151,60 +85,155 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
         'month': DateFormat.MMM().format(date),
       };
     });
+
+    setState(() => _isLoading = false);
+  }
+
+  // TODO Not fetching/getting available seats properly
+  Future<void> _generateSlots() async {
+    final supabase = Supabase.instance.client;
+    setState(() => _isLoading = true);
+
+    final response = await supabase
+        .from('game_center')
+        .select('opening_time, closing_time, seat_count')
+        .eq('id', widget.centerId)
+        .single();
+
+    final openingTime =
+        DateTime.parse('2000-01-01 ${response['opening_time']}');
+    final closingTime =
+        DateTime.parse('2000-01-01 ${response['closing_time']}');
+
+    totalSeats = response['seat_count'];
+
+    startOfDay = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      openingTime.hour,
+      openingTime.minute,
+    );
+
+    endOfDay = DateTime(
+      selectedDate.year,
+      selectedDate.month,
+      selectedDate.day,
+      closingTime.hour,
+      closingTime.minute,
+    );
+
+    final startOfDayUtc = startOfDay.toUtc().toIso8601String();
+    final endOfDayUtc = endOfDay.toUtc().toIso8601String();
+
+    final bookingsResponse = await supabase
+        .from('bookings')
+        .select('start_time, seat_count')
+        .eq('center_id', widget.centerId)
+        .gte('start_time', startOfDayUtc)
+        .lt('start_time', endOfDayUtc);
+
+    final List<Map<String, dynamic>> bookedSlots =
+        List<Map<String, dynamic>>.from(bookingsResponse);
+
+    final Map<DateTime, int> bookedSeatCountByTime = {};
+    for (final booking in bookedSlots) {
+      final startRaw = DateTime.parse(booking['start_time']).toLocal();
+      final start = DateTime(
+        startRaw.year,
+        startRaw.month,
+        startRaw.day,
+        startRaw.hour,
+        0,
+        0,
+        0,
+      );
+      final count = booking['seat_count'] as int? ?? 0;
+
+      if (bookedSeatCountByTime.containsKey(start)) {
+        bookedSeatCountByTime[start] = bookedSeatCountByTime[start]! + count;
+      } else {
+        bookedSeatCountByTime[start] = count;
+      }
+      print('Booking: ${start.toIso8601String()} => $count seats');
+    }
+
+    final List<Map<String, dynamic>> generatedSlots = [];
+
+    // Generate 1-hour slots
+    DateTime current = startOfDay;
+    while (current.isBefore(endOfDay)) {
+      final next = current.add(const Duration(hours: 1));
+
+      final normalizedStart = DateTime(
+        current.year,
+        current.month,
+        current.day,
+        current.hour,
+        0,
+        0,
+        0,
+      );
+
+      final totalBookedSeats = bookedSeatCountByTime[normalizedStart] ?? 0;
+      final availableSeats = totalSeats - totalBookedSeats;
+
+      final isToday = selectedDate.year == DateTime.now().year &&
+          selectedDate.month == DateTime.now().month &&
+          selectedDate.day == DateTime.now().day;
+
+      final isPast = isToday && current.isBefore(DateTime.now());
+
+      generatedSlots.add({
+        'label':
+            '${DateFormat.jm().format(current)} - ${DateFormat.jm().format(next)}',
+        'start': current,
+        'end': next,
+        'availableSeats': availableSeats,
+        'isBooked': availableSeats <= 0,
+        'isPast': isPast
+      });
+      current = next;
+      print('Slot: ${current.toIso8601String()} => ${totalBookedSeats} booked');
+    }
+
     setState(() {
+      slots = generatedSlots;
       _isLoading = false;
     });
   }
 
-  Future<void> confirmBooking() async {
+  Future<void> _confirmBooking() async {
     final supabase = Supabase.instance.client;
 
     if (selectedSlotId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select a slot')),
-      );
+      CCustomSnackBar.show(context, 'Select a Slot', Colors.orange);
       return;
     }
 
     try {
       final user = supabase.auth.currentUser;
-      if (user == null) {
-        throw Exception('User not logged in');
-      }
 
       final start = selectedSlotId['start'] as DateTime;
-      final end = selectedSlotId['end'] as DateTime;
 
       await supabase.from('bookings').insert({
         'start_time': start.toIso8601String(),
-        'end_time': end.toIso8601String(),
-        'seats_count': _seatCount,
-        'cust_id': user.id,
+        'seat_count': _seatCount,
+        'cust_id': user?.id,
         'center_id': widget.centerId,
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Booking confirmed!')),
-      );
+      CCustomSnackBar.show(context, 'Booking Confirmed!', Colors.green);
 
-      // Refresh slots to reflect new booking
-      generateSlots();
+      _generateSlots();
       setState(() {
         selectedSlotId = null;
         _seatCount = 1;
       });
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Booking failed: ${e.toString()}')),
-      );
+      CCustomSnackBar.show(
+          context, 'Booking failed: ${e.toString()}', Colors.red);
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    generateDatesStrip();
-    generateSlots();
   }
 
   @override
@@ -295,7 +324,7 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
                                     setState(() {
                                       selectedDate = DateTime.now()
                                           .add(Duration(days: index));
-                                      generateSlots();
+                                      _generateSlots();
                                     });
                                   },
                                   child: Container(
@@ -357,32 +386,57 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
                             children: slots.map((slot) {
                               final isSelected = slot == selectedSlotId;
                               final isBooked = slot['isBooked'] == true;
+                              final isPast = slot['isPast'] == true;
+                              final bool isDisabled = isBooked || isPast;
+
+                              Color? backgroundColor;
+                              final int available = slot['availableSeats'];
+
+                              if (isPast) {
+                                backgroundColor = Colors.grey.shade300;
+                              } else if (isBooked) {
+                                backgroundColor = Colors.red;
+                              } else if (isSelected) {
+                                backgroundColor = kMainColor;
+                              } else {
+                                final double ratio = available / totalSeats;
+                                if (ratio <= 0.33) {
+                                  backgroundColor = Colors.orange.shade300;
+                                } else if (ratio <= 0.66) {
+                                  backgroundColor = Colors.yellow.shade300;
+                                } else {
+                                  backgroundColor = null;
+                                }
+                              }
 
                               return ChoiceChip(
                                 label: Text(
-                                  slot['label'],
+                                  '${slot['label']}: $available left',
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 labelStyle: TextStyle(
-                                  color: isBooked
+                                  color: isPast
                                       ? Colors.grey.shade600
-                                      : (isSelected
-                                          ? Colors.white
-                                          : Colors.black),
+                                      : (backgroundColor == null)
+                                          ? Colors.black
+                                          : Colors.white,
                                 ),
                                 selected: isSelected,
-                                onSelected: isBooked
-                                    ? null // disables interaction
+                                onSelected: isDisabled
+                                    ? (_) {
+                                        final msg = isBooked
+                                            ? 'Slot Fully Booked, cannot select'
+                                            : 'Cannot Book';
+                                        CCustomSnackBar.show(
+                                            context, msg, Colors.orange);
+                                      }
                                     : (_) {
                                         setState(() {
                                           selectedSlotId = slot;
                                         });
                                       },
-                                selectedColor: isBooked
-                                    ? Colors.grey.shade300
-                                    : kMainColor,
-                                backgroundColor:
-                                    isBooked ? Colors.grey.shade300 : null,
+                                selectedColor: kMainColor,
+                                backgroundColor: backgroundColor,
                                 showCheckmark: false,
                               );
                             }).toList(),
@@ -390,49 +444,64 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
                         ),
                         const SizedBox(height: 32),
                         // Number of seats
-                        Row(
-                          children: [
-                            Text(
-                              'Select no. of seats',
-                              style: kHeaderStyle,
-                            ),
-                            SizedBox(width: 100),
-                            CCustomIconButton(
-                              icon: Icons.remove,
-                              onPressed: () {
-                                if (_seatCount > 1) {
-                                  setState(() {
-                                    _seatCount--;
-                                  });
-                                }
-                              },
-                            ),
-                            SizedBox(width: 10),
-                            Text(
-                              '$_seatCount',
-                              style: kHeaderStyle,
-                            ),
-                            SizedBox(width: 10),
-                            CCustomIconButton(
-                              icon: Icons.add,
-                              onPressed: () {
-                                //  TODO add seat count check functionality
-                                if (true) {
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                          child: Row(
+                            children: [
+                              Text(
+                                'Select no. of seats',
+                                style: kHeaderStyle,
+                              ),
+                              SizedBox(width: 80),
+                              CCustomIconButton(
+                                icon: Icons.remove,
+                                onPressed: () {
+                                  if (_seatCount > 1) {
+                                    setState(() {
+                                      _seatCount--;
+                                    });
+                                  }
+                                },
+                              ),
+                              SizedBox(width: 10),
+                              Text(
+                                '$_seatCount',
+                                style: kHeaderStyle,
+                              ),
+                              SizedBox(width: 10),
+                              CCustomIconButton(
+                                icon: Icons.add,
+                                onPressed: () {
                                   setState(() {
                                     _seatCount++;
                                   });
-                                }
-                              },
-                            ),
-                          ],
+                                },
+                              ),
+                            ],
+                          ),
                         ),
+                        SizedBox(height: 32),
                         Spacer(),
                         CCustomButton(
-                          buttonColor: kMainColor,
-                          textColor: Colors.white,
-                          text: 'Confirm Booking',
-                          onPressed: confirmBooking,
-                        ),
+                            buttonColor: (_seatCount >
+                                    (selectedSlotId?['availableSeats'] ??
+                                        totalSeats))
+                                ? Colors.grey
+                                : kMainColor,
+                            textColor: Colors.white,
+                            text: 'Confirm Booking',
+                            onPressed: () {
+                              if (_seatCount >
+                                  (selectedSlotId?['availableSeats'] ??
+                                      totalSeats)) {
+                                CCustomSnackBar.show(
+                                    context,
+                                    'Cannot book more than ${selectedSlotId?['availableSeats'] ?? totalSeats} seats',
+                                    Colors.orange);
+                              } else {
+                                _confirmBooking();
+                              }
+                            }),
                       ],
                     ),
                   ),
