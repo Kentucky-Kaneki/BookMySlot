@@ -17,7 +17,7 @@ const TextStyle kHeaderStyle = TextStyle(
   fontSize: 20,
 );
 
-const BoxDecoration kCenterInfoBox = BoxDecoration(
+const BoxDecoration kCustomBoxDecoration = BoxDecoration(
   color: kMainColor,
   borderRadius: BorderRadius.all(Radius.circular(48.0)),
   boxShadow: [

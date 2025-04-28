@@ -1,3 +1,4 @@
+import 'package:book_my_slot/custom_widgets.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -14,8 +15,11 @@ class CustomerProfilePage extends StatefulWidget {
 }
 
 class _CustomerProfilePageState extends State<CustomerProfilePage> {
-  int _selectedIndex = 0;
-  bool _isLoading = false;
+  final supabase = Supabase.instance.client;
+  final nameController = TextEditingController();
+  final phoneController = TextEditingController();
+  bool isLoading = false;
+  int _selectedIndex = 2;
 
   Future<void> logout() async {
     final supabase = Supabase.instance.client;
@@ -52,6 +56,49 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
     });
   }
 
+  Future<void> saveProfile() async {
+    setState(() => isLoading = true);
+    try {
+      final user = supabase.auth.currentUser;
+      if (user == null) return;
+
+      await supabase.from('profiles').update({
+        'name': nameController.text,
+        'phone': phoneController.text,
+      }).eq('id', user.id);
+
+      CCustomSnackBar.show(context, 'Saved Successfully', Colors.green);
+    } catch (e) {
+      CCustomSnackBar.show(context, e.toString(), Colors.red);
+    }
+    setState(() => isLoading = false);
+  }
+
+  Future<void> loadProfile() async {
+    setState(() => isLoading = true);
+    final user = supabase.auth.currentUser;
+    if (user == null) return;
+
+    final data = await supabase
+        .from('profiles')
+        .select()
+        .eq('id', user.id)
+        .maybeSingle();
+
+    if (data != null) {
+      nameController.text = data['name'] ?? '';
+      phoneController.text = data['phone'] ?? '';
+    }
+
+    setState(() => isLoading = false);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadProfile();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -60,7 +107,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
           appBar: AppBar(
             automaticallyImplyLeading: false,
             title: Text(
-              'Center Details',
+              'Profile Page',
               style: kAppBarTextStyle2,
             ),
             centerTitle: true,
@@ -116,8 +163,26 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [],
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        TextField(
+                            controller: nameController,
+                            decoration:
+                                const InputDecoration(labelText: 'Name')),
+                        TextField(
+                            controller: phoneController,
+                            decoration:
+                                const InputDecoration(labelText: 'Phone')),
+                        Spacer(),
+                        CCustomButton(
+                            buttonColor: kMainColor,
+                            textColor: Colors.white,
+                            text: 'Save Profile',
+                            onPressed: () {
+                              FocusScope.of(context).unfocus();
+                              saveProfile();
+                            })
+                      ],
                     ),
                   ),
                 ),
@@ -125,7 +190,7 @@ class _CustomerProfilePageState extends State<CustomerProfilePage> {
             );
           }),
         ),
-        if (_isLoading)
+        if (isLoading)
           Positioned.fill(
             child: Container(
               color: Colors.black.withValues(alpha: 0.5),

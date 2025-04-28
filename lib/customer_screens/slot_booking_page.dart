@@ -19,14 +19,16 @@ class SlotSelectionPage extends StatefulWidget {
 }
 
 class _SlotSelectionPageState extends State<SlotSelectionPage> {
-  late DateTime startOfDay;
-  late DateTime endOfDay;
-  int totalSeats = 0;
-
   bool _isLoading = false;
   int _selectedIndex = 0;
+
+  int totalSeats = 0;
   int _seatCount = 1;
   DateTime selectedDate = DateTime.now();
+
+  late DateTime startOfDay;
+  late DateTime endOfDay;
+
   late List<Map<String, String>> dateStrip;
   List<Map<String, dynamic>> slots = [];
   dynamic selectedSlotId;
@@ -135,6 +137,8 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
 
     final List<Map<String, dynamic>> bookedSlots =
         List<Map<String, dynamic>>.from(bookingsResponse);
+
+    print(bookedSlots);
 
     final Map<DateTime, int> bookedSeatCountByTime = {};
     for (final booking in bookedSlots) {
@@ -483,25 +487,26 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
                         SizedBox(height: 32),
                         Spacer(),
                         CCustomButton(
-                            buttonColor: (_seatCount >
-                                    (selectedSlotId?['availableSeats'] ??
-                                        totalSeats))
-                                ? Colors.grey
-                                : kMainColor,
-                            textColor: Colors.white,
-                            text: 'Confirm Booking',
-                            onPressed: () {
-                              if (_seatCount >
+                          buttonColor: (_seatCount >
                                   (selectedSlotId?['availableSeats'] ??
-                                      totalSeats)) {
-                                CCustomSnackBar.show(
-                                    context,
-                                    'Cannot book more than ${selectedSlotId?['availableSeats'] ?? totalSeats} seats',
-                                    Colors.orange);
-                              } else {
-                                _confirmBooking();
-                              }
-                            }),
+                                      totalSeats))
+                              ? Colors.grey
+                              : kMainColor,
+                          textColor: Colors.white,
+                          text: 'Confirm Booking',
+                          onPressed: () {
+                            if (_seatCount >
+                                (selectedSlotId?['availableSeats'] ??
+                                    totalSeats)) {
+                              CCustomSnackBar.show(
+                                  context,
+                                  'Cannot book more than ${selectedSlotId?['availableSeats'] ?? totalSeats} seats',
+                                  Colors.orange);
+                            } else {
+                              _confirmBooking();
+                            }
+                          },
+                        ),
                       ],
                     ),
                   ),

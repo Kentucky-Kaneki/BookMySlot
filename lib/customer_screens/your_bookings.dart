@@ -1,10 +1,12 @@
+import 'package:book_my_slot/login_screens/welcome_page.dart';
+import 'package:book_my_slot/constants.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:book_my_slot/constants.dart';
-import 'package:book_my_slot/login_screens/welcome_page.dart';
 import 'center_search_page.dart';
 import 'cust_profile_page.dart';
+import 'package:book_my_slot/custom_widgets.dart';
 
 class YourBookings extends StatefulWidget {
   const YourBookings({super.key});
@@ -14,8 +16,11 @@ class YourBookings extends StatefulWidget {
 }
 
 class _YourBookingsState extends State<YourBookings> {
-  int _selectedIndex = 0;
   bool _isLoading = false;
+  int _selectedIndex = 1;
+  final supabase = Supabase.instance.client;
+
+  List<dynamic> bookings = [];
 
   Future<void> logout() async {
     final supabase = Supabase.instance.client;
@@ -52,183 +57,279 @@ class _YourBookingsState extends State<YourBookings> {
     });
   }
 
-  Widget buildBookingCard(Map<String, dynamic> booking) {
-    final centerName = booking['gaming_center']['name'];
-    final startTime = TimeOfDay.fromDateTime(
-        DateTime.parse('2024-01-01 ${booking['start_time']}'));
-    //  TODO set end times to start time + 1 hour
-    final endTime = TimeOfDay.fromDateTime(
-        DateTime.parse('2024-01-01 ${booking['end_time']}'));
-    final seatCount = booking['seat_count'];
-    final endDateTime = DateTime.parse(booking['end_time']);
-    // TODO remove comments
-    // final formattedDate =
-    //     "${_getWeekday(endDateTime.weekday)} ${endDateTime.day} ${_getMonth(endDateTime.month)}";
+  void _fetchBookings() async {
+    setState(() => _isLoading = true);
+    final custId = supabase.auth.currentUser?.id;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 10),
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: kMainColor,
-        borderRadius: BorderRadius.all(Radius.circular(48.0)),
-        boxShadow: [
-          BoxShadow(
-            color: Color(0x4D000000),
-            blurRadius: 10,
-            spreadRadius: 7,
-            offset: Offset(1, 4),
+    final response = await supabase
+        .from('bookings')
+        .select('id, center_id, start_time, seat_count')
+        .eq('cust_id', custId!);
+
+    List<Map<String, dynamic>> fetchedBookings = response
+        .toList()
+        .where((booking) => booking.isNotEmpty)
+        .map<Map<String, dynamic>>((booking) {
+      DateTime startTime = DateTime.parse(booking['start_time']);
+      DateTime endTime = startTime.add(const Duration(hours: 1));
+
+      String formattedDate = DateFormat('EEEE dd MMMM').format(startTime);
+      String formattedStartTime = DateFormat.jm().format(startTime);
+      String formattedEndTime = DateFormat.jm().format(endTime);
+
+      return {
+        'id': booking['id'],
+        'seats': booking['seat_count'],
+        'date': formattedDate,
+        'time': '$formattedStartTime - $formattedEndTime',
+        'center name': null,
+        'center_id': booking['center_id'],
+      };
+    }).toList();
+
+    for (var booking in fetchedBookings) {
+      final uid = booking['center_id'];
+
+      final centerResponse = await supabase
+          .from('game_center')
+          .select('name')
+          .eq('id', uid)
+          .single();
+
+      booking['center name'] = centerResponse['name'];
+    }
+
+    setState(() {
+      if (response.isEmpty) {
+        bookings = [];
+        _isLoading = false;
+        return;
+      }
+      bookings = fetchedBookings;
+      _isLoading = false;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchBookings();
+  }
+
+  void _cancelTicket(String bookingId) async {
+    bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Cancellation'),
+        content: const Text('Are you sure you want to cancel this booking?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text(
+              'No',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(centerName,
-              style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white)),
-          const SizedBox(height: 4),
-          // TODO remove comments
-          // Text(formattedDate, style: const TextStyle(color: Colors.white)),
-          Text("${startTime.format(context)} - ${endTime.format(context)}",
-              style: const TextStyle(color: Colors.white)),
-          Text("$seatCount Seat${seatCount > 1 ? 's' : ''}",
-              style: const TextStyle(color: Colors.white)),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: Colors.green,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text('Confirmed',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, color: Colors.white)),
-              ),
-              const SizedBox(width: 12),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: Colors.white),
-                ),
-                onPressed: () {
-                  // Cancel booking logic
-                },
-                child: const Text('Cancel Booking',
-                    style: TextStyle(color: Colors.white)),
-              )
-            ],
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Yes, Cancel',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
     );
+
+    if (confirm == true) {
+      setState(() => _isLoading = true);
+
+      await supabase.from('bookings').delete().eq('id', bookingId);
+
+      setState(() {
+        _fetchBookings();
+        _isLoading = false;
+      });
+
+      CCustomSnackBar.show(
+          context, 'Booking Cancelled Successful', Colors.green);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
-            title: Text(
-              'Your Bookings',
-              style: kAppBarTextStyle2,
+    return Scaffold(
+      appBar: AppBar(
+        automaticallyImplyLeading: false,
+        title: Text(
+          'Your Bookings',
+          style: kAppBarTextStyle2,
+        ),
+        centerTitle: true,
+        backgroundColor: kMainColor,
+        actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.logout,
+              color: Colors.white,
+              weight: 10,
             ),
-            centerTitle: true,
-            backgroundColor: kMainColor,
-            actions: [
-              IconButton(
-                icon: const Icon(
-                  Icons.logout,
-                  color: Colors.white,
-                  weight: 10,
-                ),
-                onPressed: () async {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) {
-                      return const Center(
-                        child: CircularProgressIndicator(),
-                      );
-                    },
-                  );
-                  await logout();
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => WelcomePage()),
-                    (route) => false,
+            onPressed: () async {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
                   );
                 },
-                tooltip: "Sign Out",
-              ),
-            ],
+              );
+              await logout();
+              Navigator.pushAndRemoveUntil(
+                context,
+                MaterialPageRoute(builder: (context) => WelcomePage()),
+                (route) => false,
+              );
+            },
+            tooltip: "Sign Out",
           ),
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _selectedIndex,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.grey[700],
-            onTap: _onNavItemTapped,
-            backgroundColor: kMainColor,
-            items: const [
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.search), label: 'Search'),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.book), label: 'Bookings'),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.person), label: 'Profile'),
-            ],
-          ),
-          body: LayoutBuilder(builder: (context, constraints) {
-            return SingleChildScrollView(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                child: IntrinsicHeight(
+        ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.white,
+        unselectedItemColor: Colors.grey[700],
+        onTap: _onNavItemTapped,
+        backgroundColor: kMainColor,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
+          BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Bookings'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+        ],
+      ),
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            )
+          : bookings.isEmpty
+              ? Center(
                   child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: FutureBuilder(
-                      future: null,
-                      builder: (context, snapshot) {
-                        if (!snapshot.hasData) {
-                          return const Center(
-                              child: CircularProgressIndicator());
-                        }
-
-                        final bookings =
-                            snapshot.data as List<Map<String, dynamic>>;
-
-                        if (bookings.isEmpty) {
-                          return const Center(child: Text('No bookings found'));
-                        }
-
-                        return ListView.builder(
-                          itemCount: bookings.length,
-                          itemBuilder: (context, index) {
-                            return buildBookingCard(bookings[index]);
-                          },
-                        );
-                      },
+                    padding: const EdgeInsets.all(32.0),
+                    child: Text(
+                      "You haven't booked any slots.\nStart Booking Now!",
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
+                  ),
+                )
+              : LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SingleChildScrollView(
+                      child: ConstrainedBox(
+                        constraints:
+                            BoxConstraints(minHeight: constraints.maxHeight),
+                        child: IntrinsicHeight(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: bookings.map((booking) {
+                                return Ticket(
+                                  booking: booking,
+                                  onPressed: () => _cancelTicket(booking['id']),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+    );
+  }
+}
+
+class Ticket extends StatelessWidget {
+  final Map<String, dynamic> booking;
+  final VoidCallback onPressed;
+
+  const Ticket({Key? key, required this.booking, required this.onPressed})
+      : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      padding: const EdgeInsets.symmetric(vertical: 22, horizontal: 28),
+      decoration: kCustomBoxDecoration,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            booking['center name'],
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            booking['date'],
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
+          Text(
+            booking['time'],
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
+          Text(
+            '${booking['seats']} Seat${booking['seats'] > 1 ? 's' : ''}',
+            style: const TextStyle(color: Colors.white, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Confirmed',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ),
-            );
-          }),
-        ),
-        if (_isLoading)
-          Positioned.fill(
-            child: Container(
-              color: Colors.black.withValues(alpha: 0.5),
-              child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+              OutlinedButton(
+                style: OutlinedButton.styleFrom(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  minimumSize: Size.zero,
+                  side: const BorderSide(color: Colors.white),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+                onPressed: onPressed,
+                child: const Text(
+                  'Cancel Booking',
+                  style: TextStyle(color: Colors.white),
+                ),
               ),
-            ),
+            ],
           ),
-      ],
+        ],
+      ),
     );
   }
 }

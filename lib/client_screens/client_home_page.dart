@@ -328,508 +328,519 @@ class _ClientHomePageState extends State<ClientHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(children: [
-      AbsorbPointer(
-        absorbing: _isLoading,
-        child: Scaffold(
-          resizeToAvoidBottomInset: true,
-          appBar: AppBar(
-            title: Text(
-              'Hello, $_userName!',
-              style: kAppBarTextStyle2,
-            ),
-            centerTitle: true,
-            backgroundColor: kMainColor,
-            actions: [
-              IconButton(
-                icon: const Icon(
-                  Icons.logout,
-                  color: Colors.white,
-                  weight: 10,
-                ),
-                onPressed: () async {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) {
-                      return const Center(
-                        child: CircularProgressIndicator(),
-                      );
-                    },
-                  );
-                  await logout();
-                  Navigator.pushAndRemoveUntil(
-                    context,
-                    MaterialPageRoute(builder: (context) => WelcomePage()),
-                    (route) => false,
-                  );
-                },
-                tooltip: "Sign Out",
+    return Stack(
+      children: [
+        AbsorbPointer(
+          absorbing: _isLoading,
+          child: Scaffold(
+            resizeToAvoidBottomInset: true,
+            appBar: AppBar(
+              title: Text(
+                'Hello, $_userName!',
+                style: kAppBarTextStyle2,
               ),
-            ],
-          ),
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _selectedIndex,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.grey[700],
-            onTap: _onNavItemTapped,
-            backgroundColor: kMainColor,
-            items: const [
-              BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.book), label: 'Bookings'),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.person), label: 'Profile'),
-            ],
-          ),
-          body: GestureDetector(
-            onTap: () {
-              FocusScope.of(context).unfocus();
-              setState(() {
-                _isEditingName = false;
-                _isEditingLocation = false;
-                _isEditingGameList = false;
-              });
-            },
-            child: Column(
-              children: [
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Center Information
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              vertical: 24,
-                              horizontal: 32,
-                            ),
-                            decoration: kCenterInfoBox,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // Center Name
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    _isEditingName
-                                        ? Expanded(
-                                            child: TextField(
-                                              style: TextStyle(
-                                                  color: Colors.white),
-                                              controller: _nameController,
-                                              decoration: const InputDecoration(
-                                                border: UnderlineInputBorder(),
-                                                enabledBorder:
-                                                    UnderlineInputBorder(
-                                                  borderSide: BorderSide(
-                                                      color: Colors.grey),
-                                                ),
-                                              ),
-                                            ),
-                                          )
-                                        : Text(
-                                            _nameController.text.isEmpty
-                                                ? 'Gaming Center Name'
-                                                : _nameController.text,
-                                            style: TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                    IconButton(
-                                      icon: Icon(
-                                        _isEditingName
-                                            ? Icons.check
-                                            : Icons.edit,
-                                        color: Colors.grey,
-                                      ),
-                                      onPressed: () {
-                                        setState(() {
-                                          if (_isEditingName) {
-                                            // Save only when toggling from edit mode to normal mode
-                                            _saveCenterInfoChanges(
-                                                'name', _nameController.text);
-                                          }
-                                          _isEditingName =
-                                              !_isEditingName; // Toggle edit mode
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-
-                                // Timings
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Icon(Icons.watch_later_rounded,
-                                            color: Colors.white),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Timings: ${formatStoredTime(_openingTimeController.text)} - ${formatStoredTime(_closingTimeController.text)}',
-                                          style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16),
-                                        ),
-                                      ],
-                                    ),
-                                    IconButton(
-                                      icon: Icon(
-                                        Icons.edit,
-                                        color: Colors.grey,
-                                      ),
-                                      onPressed: () {
-                                        _pickTime(
-                                            context); // Show the time picker
-                                      },
-                                    ),
-                                  ],
-                                ),
-
-                                // Location
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Icon(Icons.location_on,
-                                        color: Colors.white),
-                                    SizedBox(width: 8),
-                                    Expanded(
-                                      child: _isEditingLocation
-                                          ? TextField(
-                                              style: TextStyle(
-                                                  color: Colors.white),
-                                              controller: _locationController,
-                                              maxLines: null,
-                                              decoration: const InputDecoration(
-                                                border: UnderlineInputBorder(),
-                                                enabledBorder:
-                                                    UnderlineInputBorder(
-                                                  borderSide: BorderSide(
-                                                      color: Colors.grey),
+              centerTitle: true,
+              backgroundColor: kMainColor,
+              actions: [
+                IconButton(
+                  icon: const Icon(
+                    Icons.logout,
+                    color: Colors.white,
+                    weight: 10,
+                  ),
+                  onPressed: () async {
+                    showDialog(
+                      context: context,
+                      barrierDismissible: false,
+                      builder: (context) {
+                        return const Center(
+                          child: CircularProgressIndicator(),
+                        );
+                      },
+                    );
+                    await logout();
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (context) => WelcomePage()),
+                      (route) => false,
+                    );
+                  },
+                  tooltip: "Sign Out",
+                ),
+              ],
+            ),
+            bottomNavigationBar: BottomNavigationBar(
+              currentIndex: _selectedIndex,
+              selectedItemColor: Colors.white,
+              unselectedItemColor: Colors.grey[700],
+              onTap: _onNavItemTapped,
+              backgroundColor: kMainColor,
+              items: const [
+                BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.book), label: 'Bookings'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.person), label: 'Profile'),
+              ],
+            ),
+            body: GestureDetector(
+              onTap: () {
+                FocusScope.of(context).unfocus();
+                setState(() {
+                  _isEditingName = false;
+                  _isEditingLocation = false;
+                  _isEditingGameList = false;
+                });
+              },
+              child: Column(
+                children: [
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Center Information
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 24,
+                                horizontal: 32,
+                              ),
+                              decoration: kCustomBoxDecoration,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Center Name
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      _isEditingName
+                                          ? Expanded(
+                                              child: TextField(
+                                                style: TextStyle(
+                                                    color: Colors.white),
+                                                controller: _nameController,
+                                                decoration:
+                                                    const InputDecoration(
+                                                  border:
+                                                      UnderlineInputBorder(),
+                                                  enabledBorder:
+                                                      UnderlineInputBorder(
+                                                    borderSide: BorderSide(
+                                                        color: Colors.grey),
+                                                  ),
                                                 ),
                                               ),
                                             )
                                           : Text(
-                                              _locationController.text.isEmpty
-                                                  ? 'Enter Location'
-                                                  : _locationController.text,
+                                              _nameController.text.isEmpty
+                                                  ? 'Gaming Center Name'
+                                                  : _nameController.text,
                                               style: TextStyle(
-                                                  fontSize: 16,
-                                                  color: Colors.white),
-                                              softWrap: true,
+                                                fontSize: 20,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
                                             ),
-                                    ),
-                                    IconButton(
-                                      icon: Icon(
-                                        _isEditingLocation
-                                            ? Icons.check
-                                            : Icons.edit,
-                                        color: Colors.grey,
+                                      IconButton(
+                                        icon: Icon(
+                                          _isEditingName
+                                              ? Icons.check
+                                              : Icons.edit,
+                                          color: Colors.grey,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            if (_isEditingName) {
+                                              // Save only when toggling from edit mode to normal mode
+                                              _saveCenterInfoChanges(
+                                                  'name', _nameController.text);
+                                            }
+                                            _isEditingName =
+                                                !_isEditingName; // Toggle edit mode
+                                          });
+                                        },
                                       ),
-                                      onPressed: () {
-                                        setState(() {
-                                          if (_isEditingLocation) {
-                                            _saveCenterInfoChanges('location',
-                                                _locationController.text);
-                                          }
-                                          _isEditingLocation =
-                                              !_isEditingLocation;
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 32),
+                                    ],
+                                  ),
 
-                          // Number of seats
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 10),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  // Timings
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Icon(Icons.watch_later_rounded,
+                                              color: Colors.white),
+                                          SizedBox(width: 8),
+                                          Text(
+                                            'Timings: ${formatStoredTime(_openingTimeController.text)} - ${formatStoredTime(_closingTimeController.text)}',
+                                            style: TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 16),
+                                          ),
+                                        ],
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          Icons.edit,
+                                          color: Colors.grey,
+                                        ),
+                                        onPressed: () {
+                                          _pickTime(
+                                              context); // Show the time picker
+                                        },
+                                      ),
+                                    ],
+                                  ),
+
+                                  // Location
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.location_on,
+                                          color: Colors.white),
+                                      SizedBox(width: 8),
+                                      Expanded(
+                                        child: _isEditingLocation
+                                            ? TextField(
+                                                style: TextStyle(
+                                                    color: Colors.white),
+                                                controller: _locationController,
+                                                maxLines: null,
+                                                decoration:
+                                                    const InputDecoration(
+                                                  border:
+                                                      UnderlineInputBorder(),
+                                                  enabledBorder:
+                                                      UnderlineInputBorder(
+                                                    borderSide: BorderSide(
+                                                        color: Colors.grey),
+                                                  ),
+                                                ),
+                                              )
+                                            : Text(
+                                                _locationController.text.isEmpty
+                                                    ? 'Enter Location'
+                                                    : _locationController.text,
+                                                style: TextStyle(
+                                                    fontSize: 16,
+                                                    color: Colors.white),
+                                                softWrap: true,
+                                              ),
+                                      ),
+                                      IconButton(
+                                        icon: Icon(
+                                          _isEditingLocation
+                                              ? Icons.check
+                                              : Icons.edit,
+                                          color: Colors.grey,
+                                        ),
+                                        onPressed: () {
+                                          setState(() {
+                                            if (_isEditingLocation) {
+                                              _saveCenterInfoChanges('location',
+                                                  _locationController.text);
+                                            }
+                                            _isEditingLocation =
+                                                !_isEditingLocation;
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 32),
+
+                            // Number of seats
+                            Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 10),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Total Seats:',
+                                    style: kHeaderStyle,
+                                  ),
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      CCustomIconButton(
+                                        icon: Icons.remove,
+                                        onPressed: () {
+                                          if (_seatCount > 1) {
+                                            setState(() {
+                                              _seatCount--;
+                                            });
+                                          }
+                                        },
+                                      ),
+                                      SizedBox(width: 10),
+                                      Text(
+                                        '$_seatCount',
+                                        style: kHeaderStyle,
+                                      ),
+                                      SizedBox(width: 10),
+                                      CCustomIconButton(
+                                        icon: Icons.add,
+                                        onPressed: () {
+                                          if (true) {
+                                            setState(() {
+                                              _seatCount++;
+                                            });
+                                          }
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                  CCustomIconButton(
+                                      icon: Icons.check,
+                                      onPressed: () {
+                                        _saveCenterInfoChanges(
+                                            'seat_count', _seatCount);
+                                      })
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+
+                            // Games List Section
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'Total Seats:',
-                                  style: kHeaderStyle,
-                                ),
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    CCustomIconButton(
-                                      icon: Icons.remove,
-                                      onPressed: () {
-                                        if (_seatCount > 1) {
-                                          setState(() {
-                                            _seatCount--;
-                                          });
-                                        }
-                                      },
-                                    ),
-                                    SizedBox(width: 10),
-                                    Text(
-                                      '$_seatCount',
+                                    const Text(
+                                      'Games Available',
                                       style: kHeaderStyle,
                                     ),
-                                    SizedBox(width: 10),
-                                    CCustomIconButton(
-                                      icon: Icons.add,
-                                      onPressed: () {
-                                        if (true) {
-                                          setState(() {
-                                            _seatCount++;
-                                          });
-                                        }
-                                      },
+                                    _isEditingGameList
+                                        ? IconButton(
+                                            icon: const Icon(Icons.check,
+                                                color: Colors.green, size: 28),
+                                            onPressed: () {
+                                              _saveGamesList();
+                                            },
+                                          )
+                                        : IconButton(
+                                            icon: const Icon(Icons.edit,
+                                                color: kMainColor, size: 24),
+                                            onPressed: () {
+                                              setState(() {
+                                                _gameListController.text =
+                                                    _games.join(', ');
+                                                _isEditingGameList = true;
+                                              });
+                                            },
+                                          ),
+                                  ],
+                                ),
+
+                                // List
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: _games.isNotEmpty
+                                          ? Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: _games.map((game) {
+                                                return Padding(
+                                                  padding: const EdgeInsets
+                                                      .symmetric(vertical: 4.0),
+                                                  child: Row(
+                                                    children: [
+                                                      const Icon(
+                                                          Icons
+                                                              .sports_esports_rounded,
+                                                          size: 20,
+                                                          color: kMainColor),
+                                                      const SizedBox(width: 8),
+                                                      Text(game,
+                                                          style:
+                                                              const TextStyle(
+                                                                  fontSize:
+                                                                      14)),
+                                                    ],
+                                                  ),
+                                                );
+                                              }).toList(),
+                                            )
+                                          : const Text(
+                                              'No games added yet.',
+                                              style: TextStyle(
+                                                  fontSize: 14,
+                                                  fontStyle: FontStyle.italic),
+                                            ),
                                     ),
                                   ],
                                 ),
-                                CCustomIconButton(
-                                    icon: Icons.check,
-                                    onPressed: () {
-                                      _saveCenterInfoChanges(
-                                          'seat_count', _seatCount);
-                                    })
+
+                                const SizedBox(height: 8),
+
+                                // Text Field and Confirm Icon for Editing
+                                if (_isEditingGameList)
+                                  Column(
+                                    children: [
+                                      TextField(
+                                        controller: _gameListController,
+                                        decoration: const InputDecoration(
+                                          hintText:
+                                              'Enter games separated by commas',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                               ],
                             ),
-                          ),
-                          const SizedBox(height: 24),
+                            SizedBox(height: 24),
 
-                          // Games List Section
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  const Text(
-                                    'Games Available',
-                                    style: kHeaderStyle,
-                                  ),
-                                  _isEditingGameList
-                                      ? IconButton(
-                                          icon: const Icon(Icons.check,
-                                              color: Colors.green, size: 28),
-                                          onPressed: () {
-                                            _saveGamesList();
-                                          },
-                                        )
-                                      : IconButton(
-                                          icon: const Icon(Icons.edit,
-                                              color: kMainColor, size: 24),
-                                          onPressed: () {
-                                            setState(() {
-                                              _gameListController.text =
-                                                  _games.join(', ');
-                                              _isEditingGameList = true;
-                                            });
-                                          },
-                                        ),
-                                ],
-                              ),
-
-                              // List
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Expanded(
-                                    child: _games.isNotEmpty
-                                        ? Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: _games.map((game) {
-                                              return Padding(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                        vertical: 4.0),
-                                                child: Row(
-                                                  children: [
-                                                    const Icon(
-                                                        Icons
-                                                            .sports_esports_rounded,
-                                                        size: 20,
-                                                        color: kMainColor),
-                                                    const SizedBox(width: 8),
-                                                    Text(game,
-                                                        style: const TextStyle(
-                                                            fontSize: 14)),
-                                                  ],
-                                                ),
-                                              );
-                                            }).toList(),
-                                          )
-                                        : const Text(
-                                            'No games added yet.',
-                                            style: TextStyle(
-                                                fontSize: 14,
-                                                fontStyle: FontStyle.italic),
-                                          ),
-                                  ),
-                                ],
-                              ),
-
-                              const SizedBox(height: 8),
-
-                              // Text Field and Confirm Icon for Editing
-                              if (_isEditingGameList)
-                                Column(
-                                  children: [
-                                    TextField(
-                                      controller: _gameListController,
-                                      decoration: const InputDecoration(
-                                        hintText:
-                                            'Enter games separated by commas',
-                                        border: OutlineInputBorder(),
-                                      ),
-                                    ),
-                                  ],
+                            // Notices List Section
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Notices',
+                                  style: kHeaderStyle,
                                 ),
-                            ],
-                          ),
-                          SizedBox(height: 24),
 
-                          // Notices List Section
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Notices',
-                                style: kHeaderStyle,
-                              ),
+                                // Notices List
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    for (int i = 0; i < _notices.length; i++)
+                                      if (_notices[i].trim().isNotEmpty)
+                                        // Existing Notices
+                                        Row(
+                                          children: [
+                                            const Icon(Icons.newspaper_rounded,
+                                                size: 20, color: kMainColor),
+                                            const SizedBox(width: 8),
+                                            _editingIndex == i
+                                                ? Expanded(
+                                                    child: TextField(
+                                                      controller:
+                                                          _noticeListController,
+                                                      autofocus: true,
+                                                      decoration:
+                                                          const InputDecoration(
+                                                        border:
+                                                            OutlineInputBorder(),
+                                                      ),
+                                                    ),
+                                                  )
+                                                : Expanded(
+                                                    child: Text(
+                                                      _notices[i],
+                                                      style: const TextStyle(
+                                                          fontSize: 14),
+                                                    ),
+                                                  ),
+                                            IconButton(
+                                              icon: Icon(
+                                                _editingIndex == i
+                                                    ? Icons.check
+                                                    : Icons.edit,
+                                                color: _editingIndex == i
+                                                    ? Colors.green
+                                                    : kMainColor,
+                                                size: 24,
+                                              ),
+                                              onPressed: () {
+                                                setState(() {
+                                                  if (_editingIndex == i) {
+                                                    _updateEditedNoticeToList(
+                                                        i);
+                                                  } else {
+                                                    _noticeListController.text =
+                                                        _notices[i];
+                                                    _editingIndex = i;
+                                                  }
+                                                });
+                                              },
+                                            ),
+                                          ],
+                                        ),
 
-                              // Notices List
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  for (int i = 0; i < _notices.length; i++)
-                                    if (_notices[i].trim().isNotEmpty)
-                                      // Existing Notices
+                                    // Add new notice input field
+                                    if (_isAddingNotice)
                                       Row(
                                         children: [
                                           const Icon(Icons.newspaper_rounded,
                                               size: 20, color: kMainColor),
                                           const SizedBox(width: 8),
-                                          _editingIndex == i
-                                              ? Expanded(
-                                                  child: TextField(
-                                                    controller:
-                                                        _noticeListController,
-                                                    autofocus: true,
-                                                    decoration:
-                                                        const InputDecoration(
-                                                      border:
-                                                          OutlineInputBorder(),
-                                                    ),
-                                                  ),
-                                                )
-                                              : Expanded(
-                                                  child: Text(
-                                                    _notices[i],
-                                                    style: const TextStyle(
-                                                        fontSize: 14),
-                                                  ),
-                                                ),
-                                          IconButton(
-                                            icon: Icon(
-                                              _editingIndex == i
-                                                  ? Icons.check
-                                                  : Icons.edit,
-                                              color: _editingIndex == i
-                                                  ? Colors.green
-                                                  : kMainColor,
-                                              size: 24,
+                                          Expanded(
+                                            child: TextField(
+                                              controller: _noticeListController,
+                                              autofocus: true,
+                                              decoration: const InputDecoration(
+                                                hintText: 'Enter new notice',
+                                                border: OutlineInputBorder(),
+                                              ),
                                             ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.check,
+                                                color: Colors.green, size: 24),
                                             onPressed: () {
-                                              setState(() {
-                                                if (_editingIndex == i) {
-                                                  _updateEditedNoticeToList(i);
-                                                } else {
-                                                  _noticeListController.text =
-                                                      _notices[i];
-                                                  _editingIndex = i;
-                                                }
-                                              });
+                                              _updateNewNoticeToList();
                                             },
                                           ),
                                         ],
                                       ),
-
-                                  // Add new notice input field
-                                  if (_isAddingNotice)
-                                    Row(
-                                      children: [
-                                        const Icon(Icons.newspaper_rounded,
-                                            size: 20, color: kMainColor),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: TextField(
-                                            controller: _noticeListController,
-                                            autofocus: true,
-                                            decoration: const InputDecoration(
-                                              hintText: 'Enter new notice',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                          ),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.check,
-                                              color: Colors.green, size: 24),
-                                          onPressed: () {
-                                            _updateNewNoticeToList();
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                ],
-                              ),
-
-                              // Add new notice button
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: IconButton(
-                                  icon: const Icon(Icons.add,
-                                      color: kMainColor, size: 24),
-                                  onPressed: () {
-                                    setState(() {
-                                      _noticeListController.clear();
-                                      _isAddingNotice = true;
-                                    });
-                                  },
+                                  ],
                                 ),
-                              ),
-                            ],
-                          ),
-                        ],
+
+                                // Add new notice button
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.add,
+                                        color: kMainColor, size: 24),
+                                    onPressed: () {
+                                      setState(() {
+                                        _noticeListController.clear();
+                                        _isAddingNotice = true;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
-      ),
-      if (_isLoading)
-        Positioned.fill(
-          child: Container(
-            color:
-                Colors.black.withValues(alpha: 0.5), // Semi-transparent overlay
-            child: const Center(
-              child: CircularProgressIndicator(color: Colors.white),
+        if (_isLoading)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black
+                  .withValues(alpha: 0.5), // Semi-transparent overlay
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
             ),
           ),
-        ),
-    ]);
+      ],
+    );
   }
 }

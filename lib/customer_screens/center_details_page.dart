@@ -210,7 +210,7 @@ class _CenterDetailsPageState extends State<CenterDetailsPage> {
                             vertical: 24,
                             horizontal: 32,
                           ),
-                          decoration: kCenterInfoBox,
+                          decoration: kCustomBoxDecoration,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
