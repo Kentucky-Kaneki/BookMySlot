@@ -66,10 +66,8 @@ class _YourBookingsState extends State<YourBookings> {
         .select('id, center_id, start_time, seat_count')
         .eq('cust_id', custId!);
 
-    List<Map<String, dynamic>> fetchedBookings = response
-        .toList()
-        .where((booking) => booking.isNotEmpty)
-        .map<Map<String, dynamic>>((booking) {
+    List<Map<String, dynamic>> fetchedBookings =
+        response.toList().map<Map<String, dynamic>>((booking) {
       DateTime startTime = DateTime.parse(booking['start_time']);
       DateTime endTime = startTime.add(const Duration(hours: 1));
 
@@ -100,11 +98,6 @@ class _YourBookingsState extends State<YourBookings> {
     }
 
     setState(() {
-      if (response.isEmpty) {
-        bookings = [];
-        _isLoading = false;
-        return;
-      }
       bookings = fetchedBookings;
       _isLoading = false;
     });
@@ -158,98 +151,104 @@ class _YourBookingsState extends State<YourBookings> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: Text(
-          'Your Bookings',
-          style: kAppBarTextStyle2,
-        ),
-        centerTitle: true,
-        backgroundColor: kMainColor,
-        actions: [
-          IconButton(
-            icon: const Icon(
-              Icons.logout,
-              color: Colors.white,
-              weight: 10,
+    return Stack(
+      children: [
+        Scaffold(
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
+            title: Text(
+              'Your Bookings',
+              style: kAppBarTextStyle2,
             ),
-            onPressed: () async {
-              showDialog(
-                context: context,
-                barrierDismissible: false,
-                builder: (context) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
+            centerTitle: true,
+            backgroundColor: kMainColor,
+            actions: [
+              IconButton(
+                icon: const Icon(
+                  Icons.logout,
+                  color: Colors.white,
+                  weight: 10,
+                ),
+                onPressed: () async {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) {
+                      return const Center(
+                        child: CircularProgressIndicator(),
+                      );
+                    },
+                  );
+                  await logout();
+                  Navigator.pushAndRemoveUntil(
+                    context,
+                    MaterialPageRoute(builder: (context) => WelcomePage()),
+                    (route) => false,
                   );
                 },
-              );
-              await logout();
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => WelcomePage()),
-                (route) => false,
-              );
-            },
-            tooltip: "Sign Out",
+                tooltip: "Sign Out",
+              ),
+            ],
           ),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.grey[700],
-        onTap: _onNavItemTapped,
-        backgroundColor: kMainColor,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.search), label: 'Search'),
-          BottomNavigationBarItem(icon: Icon(Icons.book), label: 'Bookings'),
-          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Colors.white),
-            )
-          : bookings.isEmpty
-              ? Center(
+          bottomNavigationBar: BottomNavigationBar(
+            currentIndex: _selectedIndex,
+            selectedItemColor: Colors.white,
+            unselectedItemColor: Colors.grey[700],
+            onTap: _onNavItemTapped,
+            backgroundColor: kMainColor,
+            items: const [
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.search), label: 'Search'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.book), label: 'Bookings'),
+              BottomNavigationBarItem(
+                  icon: Icon(Icons.person), label: 'Profile'),
+            ],
+          ),
+          body: LayoutBuilder(builder: (context, constraints) {
+            return SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: IntrinsicHeight(
                   child: Padding(
-                    padding: const EdgeInsets.all(32.0),
-                    child: Text(
-                      "You haven't booked any slots.\nStart Booking Now!",
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                )
-              : LayoutBuilder(
-                  builder: (context, constraints) {
-                    return SingleChildScrollView(
-                      child: ConstrainedBox(
-                        constraints:
-                            BoxConstraints(minHeight: constraints.maxHeight),
-                        child: IntrinsicHeight(
-                          child: Padding(
-                            padding: const EdgeInsets.all(16.0),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: bookings.map((booking) {
-                                return Ticket(
-                                  booking: booking,
-                                  onPressed: () => _cancelTicket(booking['id']),
-                                );
-                              }).toList(),
+                    padding: const EdgeInsets.all(16.0),
+                    child: bookings.isEmpty
+                        ? const Center(
+                            child: Text(
+                              "You haven't booked any slots.\nStart Booking Now!",
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
+                          )
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: bookings.map((booking) {
+                              return Ticket(
+                                booking: booking,
+                                onPressed: () => _cancelTicket(booking['id']),
+                              );
+                            }).toList(),
                           ),
-                        ),
-                      ),
-                    );
-                  },
+                  ),
                 ),
+              ),
+            );
+          }),
+        ),
+        if (_isLoading)
+          Positioned.fill(
+            child: Container(
+              color: Colors.black.withValues(alpha: 0.5),
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
