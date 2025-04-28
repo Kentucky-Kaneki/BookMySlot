@@ -19,12 +19,12 @@ class SlotSelectionPage extends StatefulWidget {
 }
 
 class _SlotSelectionPageState extends State<SlotSelectionPage> {
+  final supabase = Supabase.instance.client;
   bool _isLoading = false;
   int _selectedIndex = 0;
-
+  DateTime selectedDate = DateTime.now();
   int totalSeats = 0;
   int _seatCount = 1;
-  DateTime selectedDate = DateTime.now();
 
   late DateTime startOfDay;
   late DateTime endOfDay;
@@ -34,7 +34,6 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
   dynamic selectedSlotId;
 
   Future<void> logout() async {
-    final supabase = Supabase.instance.client;
     await supabase.auth.signOut();
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('auth_token');
@@ -68,13 +67,6 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
     });
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _generateDatesStrip();
-    _generateSlots();
-  }
-
   void _generateDatesStrip() {
     setState(() => _isLoading = true);
 
@@ -91,9 +83,7 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
     setState(() => _isLoading = false);
   }
 
-  // TODO Not fetching/getting available seats properly
-  Future<void> _generateSlots() async {
-    final supabase = Supabase.instance.client;
+  void _fetchCenterDetails() async {
     setState(() => _isLoading = true);
 
     final response = await supabase
@@ -109,25 +99,30 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
 
     totalSeats = response['seat_count'];
 
-    startOfDay = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-      openingTime.hour,
-      openingTime.minute,
-    );
+    startOfDay = DateTime(selectedDate.year, selectedDate.month,
+        selectedDate.day, openingTime.hour, openingTime.minute);
 
-    endOfDay = DateTime(
-      selectedDate.year,
-      selectedDate.month,
-      selectedDate.day,
-      closingTime.hour,
-      closingTime.minute,
-    );
+    endOfDay = DateTime(selectedDate.year, selectedDate.month, selectedDate.day,
+        closingTime.hour, closingTime.minute);
+
+    setState(() => _isLoading = false);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _generateDatesStrip();
+    _fetchCenterDetails();
+    _generateSlots();
+  }
+
+  Future<void> _generateSlots() async {
+    setState(() => _isLoading = true);
 
     final startOfDayUtc = startOfDay.toUtc().toIso8601String();
     final endOfDayUtc = endOfDay.toUtc().toIso8601String();
 
+    // fetching slot data for that day
     final bookingsResponse = await supabase
         .from('bookings')
         .select('start_time, seat_count')
@@ -138,20 +133,11 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
     final List<Map<String, dynamic>> bookedSlots =
         List<Map<String, dynamic>>.from(bookingsResponse);
 
-    print(bookedSlots);
-
     final Map<DateTime, int> bookedSeatCountByTime = {};
     for (final booking in bookedSlots) {
       final startRaw = DateTime.parse(booking['start_time']).toLocal();
       final start = DateTime(
-        startRaw.year,
-        startRaw.month,
-        startRaw.day,
-        startRaw.hour,
-        0,
-        0,
-        0,
-      );
+          startRaw.year, startRaw.month, startRaw.day, startRaw.hour, 0, 0, 0);
       final count = booking['seat_count'] as int? ?? 0;
 
       if (bookedSeatCountByTime.containsKey(start)) {
@@ -170,14 +156,7 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
       final next = current.add(const Duration(hours: 1));
 
       final normalizedStart = DateTime(
-        current.year,
-        current.month,
-        current.day,
-        current.hour,
-        0,
-        0,
-        0,
-      );
+          current.year, current.month, current.day, current.hour, 0, 0, 0);
 
       final totalBookedSeats = bookedSeatCountByTime[normalizedStart] ?? 0;
       final availableSeats = totalSeats - totalBookedSeats;
@@ -189,6 +168,7 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
       final isPast = isToday && current.isBefore(DateTime.now());
 
       generatedSlots.add({
+        'id': current.toIso8601String(),
         'label':
             '${DateFormat.jm().format(current)} - ${DateFormat.jm().format(next)}',
         'start': current,
@@ -208,8 +188,6 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
   }
 
   Future<void> _confirmBooking() async {
-    final supabase = Supabase.instance.client;
-
     if (selectedSlotId == null) {
       CCustomSnackBar.show(context, 'Select a Slot', Colors.orange);
       return;
@@ -388,7 +366,7 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
                             spacing: 8,
                             runSpacing: 8,
                             children: slots.map((slot) {
-                              final isSelected = slot == selectedSlotId;
+                              final isSelected = slot['id'] == selectedSlotId;
                               final isBooked = slot['isBooked'] == true;
                               final isPast = slot['isPast'] == true;
                               final bool isDisabled = isBooked || isPast;
@@ -409,7 +387,7 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
                                 } else if (ratio <= 0.66) {
                                   backgroundColor = Colors.yellow.shade300;
                                 } else {
-                                  backgroundColor = null;
+                                  backgroundColor = Colors.green.shade300;
                                 }
                               }
 
@@ -421,22 +399,20 @@ class _SlotSelectionPageState extends State<SlotSelectionPage> {
                                 labelStyle: TextStyle(
                                   color: isPast
                                       ? Colors.grey.shade600
-                                      : (backgroundColor == null)
-                                          ? Colors.black
-                                          : Colors.white,
+                                      : Colors.white,
                                 ),
                                 selected: isSelected,
                                 onSelected: isDisabled
                                     ? (_) {
                                         final msg = isBooked
                                             ? 'Slot Fully Booked, cannot select'
-                                            : 'Cannot Book';
+                                            : 'Cannot Book past slots';
                                         CCustomSnackBar.show(
                                             context, msg, Colors.orange);
                                       }
                                     : (_) {
                                         setState(() {
-                                          selectedSlotId = slot;
+                                          selectedSlotId = slot['id'];
                                         });
                                       },
                                 selectedColor: kMainColor,
